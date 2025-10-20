@@ -17,6 +17,10 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin123")
 def chat(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 
 @app.post("/login")
 async def login(data: dict):
