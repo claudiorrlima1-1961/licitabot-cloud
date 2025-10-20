@@ -1,49 +1,95 @@
-from fastapi import FastAPI, Request, UploadFile, File, Header, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import (
+    FastAPI, Request, UploadFile, File, Header,
+    HTTPException, Depends, Response
+)
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import os, pathlib
+import os, pathlib, hmac, hashlib, time
+
+from .rag_store import ingest_paths, search, context_from_hits
+from .core import answer
 
 app = FastAPI(title="Licitabot – Cloud")
 
-# monta /static e /templates (pastas na raiz do repo)
+# Monta pastas
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# Variáveis (com strip para evitar \n no Render)
 ACCESS_PASSWORD = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
+ADMIN_TOKEN     = (os.getenv("ADMIN_TOKEN", "admin123") or "admin123").strip()
+SECRET_KEY      = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
 
-print("🔍 Diagnóstico: ACCESS_PASSWORD configurada como ->", repr(ACCESS_PASSWORD))
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin123")
+# Sessão
+SESSION_COOKIE = "licita_sess"
+SESSION_TTL    = 60 * 60 * 24 * 7  # 7 dias
 
-# ----- rotas -----
+def make_token(username: str = "cliente") -> str:
+    exp = int(time.time()) + SESSION_TTL
+    payload = f"{username}:{exp}"
+    sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}:{sig}"
 
-# login (página)
+def verify_token(token: str) -> bool:
+    try:
+        username, exp, sig = token.split(":", 2)
+        payload = f"{username}:{exp}"
+        expected = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            return False
+        return int(exp) >= int(time.time())
+    except Exception:
+        return False
+
+def require_auth(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token or not verify_token(token):
+        raise HTTPException(status_code=401, detail="Acesso não autorizado.")
+    return True
+
+# ----- Rotas -----
+
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
+def page_login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-# login (verificação da senha)
 @app.post("/login")
-async def login(data: dict):
-    password = (data or {}).get("password", "")
-    if password != ACCESS_PASSWORD:
+async def login(payload: dict, response: Response):
+    pwd = (payload or {}).get("password", "").strip()
+    if pwd != ACCESS_PASSWORD:
         return JSONResponse({"ok": False, "error": "Senha incorreta."}, status_code=401)
-    return {"ok": True}
+    token = make_token("cliente")
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie(
+        SESSION_COOKIE, token,
+        max_age=SESSION_TTL, httponly=True, samesite="lax"
+    )
+    return resp
 
-# página do chat
 @app.get("/chat", response_class=HTMLResponse)
-def chat(request: Request):
+def page_chat(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token or not verify_token(token):
+        return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("index.html", {"request": request})
 
-# pergunta do chat (versão mínima; depois ativamos RAG)
+# >>>>>>>>>>>>> AQUI: /ask com RAG + OpenAI <<<<<<<<<<<<<<
 @app.post("/ask")
-async def ask(data: dict):
-    q = (data or {}).get("question", "").strip()
+async def ask(payload: dict, ok: bool = Depends(require_auth)):
+    q = (payload or {}).get("question", "").strip()
     if not q:
         return {"answer": "Por favor, escreva sua pergunta."}
-    return {"answer": f"Simulação de resposta sobre: {q}"}
+    # busca trechos relevantes
+    hits = search(q, k=4)
+    ctx = context_from_hits(hits)
+    # chama OpenAI
+    try:
+        ans = answer(q, ctx)
+    except Exception as e:
+        ans = f"Erro ao consultar o modelo: {e}"
+    return {"answer": ans}
 
-# upload de PDF (admin)
 @app.post("/upload_pdf")
 async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(None)):
     if x_admin_token != ADMIN_TOKEN:
@@ -52,9 +98,9 @@ async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(N
     dest = f"/data/docs/{file.filename}"
     with open(dest, "wb") as f:
         f.write(await file.read())
+    ingest_paths([dest])
     return {"ok": True, "indexed": file.filename}
 
-# saúde
 @app.get("/health")
 def health():
     return {"status": "ok"}
