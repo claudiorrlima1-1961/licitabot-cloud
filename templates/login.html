@@ -3,64 +3,61 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Licitabot — Login</title>
+  <title>LICITABOT — Acesso</title>
   <link rel="stylesheet" href="/static/style.css" />
 </head>
-<body class="bg-blue">
+<body>
   <div class="wrap">
-    <div class="login-card">
-      <h1>LICITABOT — Acesso</h1>
-      <p class="muted">Acesso restrito. Digite a senha de acesso.</p>
+    <header class="hero">
+      <div style="font-size:40px;opacity:.95">⚖️</div>
+      <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
+      <p>Acesso restrito a assinantes. Digite a senha de acesso fornecida após o pagamento.</p>
 
-      <!-- Use <form> apenas para acessibilidade; prevenimos o submit padrão -->
-      <form id="login-form">
-        <input id="pwd" type="password" class="ask" placeholder="Senha de acesso" autocomplete="current-password" />
-        <button id="go" type="submit" class="btn btn-primary" style="margin-top:10px">Entrar</button>
-      </form>
+      <div class="card">
+        <form id="login-form">
+          <input id="pwd" class="input" type="password" placeholder="🔒  Senha de acesso" autocomplete="current-password" />
+          <button id="go" class="btn" type="submit">Entrar</button>
+        </form>
+        <div id="msg" style="margin-top:10px;opacity:.9"></div>
+      </div>
+    </header>
 
-      <div id="msg" class="muted" style="margin-top:10px"></div>
-    </div>
+    <section class="section">
+      <h2>LICITABOT — Licitações & Contratos</h2>
+      <p class="sub">Faça sua pergunta. O assistente usa a base central (RAG) e cita as fontes quando necessário.</p>
+
+      <div class="messages" id="demo">
+        <div class="msg user"><b>Usuário:</b> Quais são as sanções da Lei 14.133?</div>
+        <div class="msg"><b>Licitabot:</b> As sanções estão previstas no art. 156 da Lei 14.133/21, incluindo advertência, multa, suspensão e declaração de inidoneidade. [Lei_14133.pdf – parte 2]</div>
+      </div>
+
+      <p class="legal">Isto não substitui consulta/parecer jurídico formal.</p>
+    </section>
   </div>
 
   <script>
-  (function () {
+  (function(){
     const form = document.getElementById('login-form');
-    const pwd  = document.getElementById('pwd');
-    const msg  = document.getElementById('msg');
-    const btn  = document.getElementById('go');
+    const pwd = document.getElementById('pwd');
+    const msg = document.getElementById('msg');
 
-    async function doLogin(e) {
-      if (e) e.preventDefault(); // impede reload GET /
+    async function doLogin(e){
+      e.preventDefault();
       msg.textContent = '';
       const password = (pwd.value || '').trim();
-      if (!password) { msg.textContent = 'Digite a senha.'; return; }
+      if(!password){ msg.textContent='Digite a senha.'; return; }
 
-      try {
-        const resp = await fetch('/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-        const data = await resp.json();
-        if (!resp.ok) {
-          msg.textContent = data?.error || 'Senha incorreta.';
-          return;
-        }
-        // sucesso: backend define cookie de sessão; vamos ao chat
-        window.location.href = '/chat';
-      } catch (err) {
-        msg.textContent = 'Falha de conexão. Tente novamente.';
-      }
+      const r = await fetch('/login',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({password})
+      });
+      const d = await r.json();
+      if(!r.ok){ msg.textContent = d?.error || 'Senha incorreta.'; return; }
+      window.location.href = '/chat';
     }
 
-    // Conecta submit do form e clique do botão
     form.addEventListener('submit', doLogin);
-    btn.addEventListener('click', doLogin);
-
-    // Enter no campo senha
-    pwd.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') doLogin(e);
-    });
   })();
   </script>
 </body>
