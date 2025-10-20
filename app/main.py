@@ -10,7 +10,8 @@ app = FastAPI(title="Licitabot – Cloud")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "1234")
+ACCESS_PASSWORD = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
+
 print("🔍 Diagnóstico: ACCESS_PASSWORD configurada como ->", repr(ACCESS_PASSWORD))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin123")
 
