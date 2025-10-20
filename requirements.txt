@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+chromadb
+pypdf
+tiktoken
+python-multipart
+openai>=1.40.0
+jinja2

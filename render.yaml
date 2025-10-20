@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: licitabot-cloud-2025
+    env: docker
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: ACCESS_PASSWORD
+        generateValue: true
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PORT
+        value: "10000"
+    disk:
+      name: chroma-index
+      mountPath: /data
+      sizeGB: 1

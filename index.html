@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LICITABOT — Chat</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-light">
+  <div class="wrap">
+
+    <header class="header">
+      <h2>LICITABOT — Licitações &amp; Contratos</h2>
+      <p class="muted">
+        Faça sua pergunta. O assistente usa a base central (RAG) e cita as fontes quando necessário.
+      </p>
+    </header>
+
+    <main class="chat-card">
+      <div id="messages" class="messages"></div>
+
+      <div class="ask-row">
+        <input id="q" class="ask" placeholder="Quais são as sanções da Lei 14.133?" />
+        <button id="send" class="btn btn-primary">Perguntar</button>
+      </div>
+
+      <p class="legal">Isto não substitui consulta/parecer jurídico formal.</p>
+    </main>
+
+  </div>
+
+  <script>
+    function addMsg(role, text) {
+      const box = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      div.innerText = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function ask(question) {
+      const resp = await fetch('/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ question })
+      });
+      if (resp.status === 401) {
+        window.location.href = '/';
+        return 'Sessão expirada. Faça login novamente.';
+      }
+      if (!resp.ok) return 'Erro: ' + resp.status;
+      const data = await resp.json();
+      return data?.answer || 'Sem resposta.';
+    }
+
+    document.getElementById('send').onclick = async () => {
+      const input = document.getElementById('q');
+      const q = input.value.trim();
+      if (!q) return;
+      addMsg('user', q);
+      input.value = '';
+      addMsg('bot', 'pensando...');
+      const ans = await ask(q);
+      const last = document.querySelector('#messages .msg.bot:last-child');
+      last.innerText = ans;
+    };
+
+    document.getElementById('q').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('send').click();
+    });
+  </script>
+</body>
+</html>

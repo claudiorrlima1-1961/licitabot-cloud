@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LICITABOT — Acesso</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body class="bg-blue">
+  <div class="wrap">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-icon"></div>
+        <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
+      </div>
+
+      <p class="muted center">
+        Acesso restrito a assinantes. Digite a senha de acesso fornecida após o pagamento.
+      </p>
+
+      <div class="input-row">
+        <span class="lock-ico">🔒</span>
+        <input id="pwd" type="password" placeholder="Senha de acesso" />
+      </div>
+
+      <button id="go" class="btn btn-primary full">Entrar</button>
+      <div id="msg" class="muted center" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    async function submit() {
+      const password = document.getElementById('pwd').value.trim();
+      const resp = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ password })
+      });
+      const data = await resp.json();
+      const msg = document.getElementById('msg');
+      if (!resp.ok) {
+        msg.innerText = data?.error || 'Senha incorreta.';
+        return;
+      }
+      window.location.href = '/';
+    }
+    document.getElementById('go').onclick = submit;
+    document.getElementById('pwd').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submit();
+    });
+  </script>
+</body>
+</html>
