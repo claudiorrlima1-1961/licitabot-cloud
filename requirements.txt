@@ -1,8 +1,8 @@
 fastapi
 uvicorn
+jinja2
+python-multipart
+openai>=1.40.0
 chromadb
 pypdf
 tiktoken
-python-multipart
-openai>=1.40.0
-jinja2
