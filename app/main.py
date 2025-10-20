@@ -11,6 +11,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "1234")
+print("🔍 Diagnóstico: ACCESS_PASSWORD configurada como ->", repr(ACCESS_PASSWORD))
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin123")
 
 # ----- rotas -----
