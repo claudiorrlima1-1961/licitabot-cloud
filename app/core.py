@@ -2,11 +2,14 @@ import os
 from openai import OpenAI
 
 SYSTEM_PROMPT = (
-    "Você é um assistente jurídico especializado em Licitações e Contratos no Brasil. "
-    "Foque em: pregão eletrônico, gestão/fiscalização contratual, aditivos, reequilíbrio, sanções, rescisão e Lei 14.133/2021. "
-    "Use o contexto somente se for pertinente e, quando usar, cite a fonte entre colchetes [arquivo - parte X]. "
-    "Se houver variações estaduais/municipais, avise. "
-    "Finalize com: 'Isto não substitui consulta/parecer jurídico formal.'"
+    "Você é um assistente jurídico especializado em Licitações e Contratos no Brasil.\n"
+    "REGRAS OBRIGATÓRIAS:\n"
+    "1) Responda APENAS com base no CONTEXTO fornecido.\n"
+    "2) Se o CONTEXTO não contiver a resposta, diga literalmente: "
+    "'Não encontrei essa informação na base de documentos.'\n"
+    "3) Quando usar trechos do CONTEXTO, cite a fonte entre colchetes [arquivo - parte X].\n"
+    "4) Indique variações estaduais/municipais quando relevante.\n"
+    "5) Termine com: 'Isto não substitui consulta/parecer jurídico formal.'"
 )
 
 def get_client() -> OpenAI:
@@ -19,12 +22,14 @@ def answer(question: str, context: str) -> str:
     client = get_client()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"Pergunta do usuário:\n{question}\n\nContexto (use se for útil e cite a fonte):\n{context}"}
+        # Instrução reforço: contexto é a ÚNICA fonte
+        {"role": "system", "content": "IMPORTANTE: ignore qualquer conhecimento externo; use somente o CONTEXTO."},
+        {"role": "user", "content": f"Pergunta: {question}\n\nCONTEXTO (use apenas este material):\n{context}"}
     ]
     res = client.chat.completions.create(
         model="gpt-4o",
         messages=messages,
         temperature=0.1,
-        max_tokens=900,
+        max_tokens=900
     )
     return res.choices[0].message.content
