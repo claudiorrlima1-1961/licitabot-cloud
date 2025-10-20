@@ -13,9 +13,10 @@ templates = Jinja2Templates(directory="templates")
 ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "1234")
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "admin123")
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+@app.get("/chat", response_class=HTMLResponse)
+def chat(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.post("/login")
 async def login(data: dict):
