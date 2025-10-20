@@ -1,0 +1,19 @@
+<!doctype html><html lang="pt-br"><head>
+  <meta charset="utf-8"><title>Licitabot – Login</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head><body class="bg-blue">
+  <div class="wrap"><div class="login-card">
+    <h1>LICITABOT — Acesso</h1>
+    <p class="muted">Digite a senha de acesso.</p>
+    <input id="pwd" type="password" placeholder="Senha de acesso">
+    <button onclick="go()">Entrar</button>
+    <div id="msg" class="muted"></div>
+  </div></div>
+<script>
+async function go(){
+  const password=document.getElementById('pwd').value.trim();
+  const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+  const d=await r.json(); if(!r.ok){document.getElementById('msg').innerText=d.error||'Senha incorreta';return;}
+  location.href='/';
+}
+</script></body></html>
