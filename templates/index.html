@@ -1,0 +1,15 @@
+<!doctype html><html lang="pt-br"><head>
+  <meta charset="utf-8"><title>Licitabot – Chat</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head><body class="bg-light">
+  <div class="wrap">
+    <h2>LICITABOT — Licitações & Contratos</h2>
+    <div id="chat" class="messages" style="height:380px;overflow:auto;border:1px solid #dbe2ea;padding:10px;background:#fff"></div>
+    <div class="ask-row"><input id="q" class="ask" placeholder="Faça sua pergunta..."><button id="send" class="btn btn-primary">Perguntar</button></div>
+    <p class="legal">Isto não substitui consulta/parecer jurídico formal.</p>
+  </div>
+<script>
+function add(role,txt){const c=document.getElementById('chat');const d=document.createElement('div');d.className='msg '+role;d.innerText=txt;c.appendChild(d);c.scrollTop=c.scrollHeight;}
+document.getElementById('send').onclick=async()=>{const i=document.getElementById('q');const q=i.value.trim();if(!q)return;add('user',q);i.value='';add('bot','pensando...');const r=await fetch('/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});const d=await r.json();document.querySelector('#chat .msg.bot:last-child').innerText=d?.answer||'Sem resposta';};
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('send').click();});
+</script></body></html>
