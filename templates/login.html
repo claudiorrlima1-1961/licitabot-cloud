@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>LICITABOT — Acesso</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=3" />
 </head>
 <body>
   <div class="wrap">
@@ -21,25 +21,13 @@
         <div id="msg" style="margin-top:10px;opacity:.9"></div>
       </div>
     </header>
-
-    <section class="section">
-      <h2>LICITABOT — Licitações & Contratos</h2>
-      <p class="sub">Faça sua pergunta. O assistente usa a base central (RAG) e cita as fontes quando necessário.</p>
-
-      <div class="messages" id="demo">
-        <div class="msg user"><b>Usuário:</b> Quais são as sanções da Lei 14.133?</div>
-        <div class="msg"><b>Licitabot:</b> As sanções estão previstas no art. 156 da Lei 14.133/21, incluindo advertência, multa, suspensão e declaração de inidoneidade. [Lei_14133.pdf – parte 2]</div>
-      </div>
-
-      <p class="legal">Isto não substitui consulta/parecer jurídico formal.</p>
-    </section>
   </div>
 
   <script>
   (function(){
     const form = document.getElementById('login-form');
-    const pwd = document.getElementById('pwd');
-    const msg = document.getElementById('msg');
+    const pwd  = document.getElementById('pwd');
+    const msg  = document.getElementById('msg');
 
     async function doLogin(e){
       e.preventDefault();
@@ -54,6 +42,7 @@
       });
       const d = await r.json();
       if(!r.ok){ msg.textContent = d?.error || 'Senha incorreta.'; return; }
+      // sucesso → vai para o chat
       window.location.href = '/chat';
     }
 
