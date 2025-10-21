@@ -110,6 +110,52 @@ async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(N
         f.write(await file.read())
     ingest_paths([dest])
     return {"ok": True, "indexed": file.filename}
+    from fastapi import UploadFile, File, Header, HTTPException
+from typing import Optional
+import os
+
+# --- CONFIGURAÇÃO ---
+ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
+
+def index_pdf(file_path: str) -> int:
+    """
+    Função simulada de indexação do PDF.
+    No futuro, aqui entra seu código real de embeddings.
+    """
+    print(f"📄 Indexando {file_path} ...")
+    return 200
+
+@app.post("/upload_pdf")
+async def upload_pdf(
+    file: UploadFile = File(...),
+    x_admin_token: Optional[str] = Header(None, convert_underscores=False)
+):
+    """
+    Recebe e processa PDFs enviados via HTTP.
+    Protegido com senha (ADMIN_UPLOAD_TOKEN).
+    """
+    # --- Segurança ---
+    if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
+        raise HTTPException(status_code=401, detail="Token incorreto")
+
+    # --- Verifica tipo ---
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=422, detail="Envie apenas arquivos PDF")
+
+    # --- Salva o arquivo temporariamente ---
+    os.makedirs("uploads", exist_ok=True)
+    file_path = os.path.join("uploads", file.filename)
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    # --- Indexa o PDF ---
+    try:
+        chunks = index_pdf(file_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar PDF: {e}")
+
+    return {"status": "ok", "filename": file.filename, "chunks": chunks}
+
 
 @app.get("/health")
 def health():
