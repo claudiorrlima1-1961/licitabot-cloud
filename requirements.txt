@@ -2,10 +2,10 @@ fastapi
 uvicórnio
 python-multipart
 jinja2
-aberto>1.40.0
+aberto>=1.40.0
 chromadb
 pypdf
 token do TikTok
-python-multipart>0,0,9
+python-multipart>=0,0,9
 uvicórnio
 aberto
