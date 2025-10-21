@@ -51,8 +51,13 @@ body.layout{
 .login-form{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .input-lg{
   flex:1 1 320px;height:54px;padding:0 14px;border-radius:14px;
-  border:1px solid rgba(255,255,255,.28);
-  background:rgba(255,255,255,.12);color:#fff;outline:none;font-size:18px;
+  border:1px solid rgba(255,255,255,.40);
+  background:rgba(255,255,255,.20);
+  color:#fff;outline:none;font-size:18px;
+}
+/* >>> Deixa o placeholder bem visível */
+.input-lg::placeholder{
+  color:#ffffff;opacity:.95;font-weight:600;
 }
 .btn-lg{
   height:54px;padding:0 20px;border:0;border-radius:14px;
