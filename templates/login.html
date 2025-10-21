@@ -2,52 +2,148 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LICITABOT — Acesso</title>
-  <link rel="stylesheet" href="/static/style.css?v=3" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LICITABOT — Acesso & Chat</title>
+  <!-- v=16 força o navegador a baixar o CSS novo -->
+  <link rel="stylesheet" href="/static/style.css?v=16" />
 </head>
-<body>
-  <div class="wrap">
-    <header class="hero">
-      <div style="font-size:40px;opacity:.95">⚖️</div>
+<body class="layout">
+  <div class="shell">
+    <!-- CABEÇALHO + LOGIN -->
+    <header class="hero" id="login-area">
       <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
-      <p>Acesso restrito a assinantes. Digite a senha de acesso fornecida após o pagamento.</p>
 
-      <div class="card">
-        <form id="login-form">
-          <input id="pwd" class="input" type="password" placeholder="🔒  Senha de acesso" autocomplete="current-password" />
-          <button id="go" class="btn" type="submit">Entrar</button>
+      <!-- Destaque acima da senha -->
+      <div class="highlight">
+        <strong>(Destaque)</strong> Não é apenas um chatbot, mas uma excelente ferramenta de pesquisa em uma base de dados resultante de anos de experiência real e prática em licitações e contratos, aplicados a uma IA especializada.
+      </div>
+
+      <div class="login-card">
+        <form id="login-form" class="login-form">
+          <input id="pwd" class="input-lg" type="password" placeholder="Senha de acesso" autocomplete="current-password" />
+          <button id="go" class="btn-lg" type="submit">Entrar</button>
         </form>
-        <div id="msg" style="margin-top:10px;opacity:.9"></div>
+        <div id="msg" class="msg"></div>
+
+        <!-- Quais as diferenças -->
+        <div class="benefits">
+          <div class="benefits-title">Quais as diferenças?</div>
+          <ul class="benefits-list">
+            <li>✅ <b>Base especializada</b> — não usamos dados genéricos da internet</li>
+            <li>✅ <b>Conhecimento prático</b> — anos de experiência prática em licitações e contratos</li>
+            <li>✅ <b>Respostas contextuais</b> — entende as nuances das áreas de licitações e contratos</li>
+            <li>✅ <b>Fontes citadas</b> — você sabe de onde vem a informação</li>
+          </ul>
+        </div>
       </div>
     </header>
+
+    <!-- CHAT (inicia oculto; input desabilitado até login OK) -->
+    <section class="chat-panel" id="chat-area" hidden>
+      <div class="chat-head">
+        <h2>LICITABOT — Licitações & Contratos</h2>
+        <p class="sub">
+          <b>Faça perguntas específicas sobre licitações e contratos</b><br>
+          <span class="sub-note">Experimente a diferença de uma IA treinada exclusivamente com documentos da área, não com conteúdo genérico.</span>
+        </p>
+      </div>
+
+      <!-- Janela de mensagens (vazia até o usuário perguntar) -->
+      <div id="chat" class="chat-box"></div>
+
+      <!-- Barra de pergunta (fica visível e “colada” ao fim do painel) -->
+      <div class="ask-row">
+        <input id="q" class="ask-lg" placeholder="Digite aqui a sua pergunta..." disabled />
+        <button id="send" class="btn-primary-lg" disabled>Perguntar</button>
+      </div>
+
+      <!-- Rodapé -->
+      <p class="legal">
+        Isto não substitui consulta/parecer jurídico formal.<br>
+        O assistivo usa base especializada refinada por anos de trabalho prático na área por Cláudio Lima — respostas mais precisas que IAs genéricas.
+      </p>
+    </section>
   </div>
 
   <script>
-  (function(){
-    const form = document.getElementById('login-form');
-    const pwd  = document.getElementById('pwd');
-    const msg  = document.getElementById('msg');
+    // ===== LOGIN =====
+    const form     = document.getElementById('login-form');
+    const pwdInput = document.getElementById('pwd');
+    const msgLogin = document.getElementById('msg');
+    const chatArea = document.getElementById('chat-area');
+    const qInput   = document.getElementById('q');
+    const btnSend  = document.getElementById('send');
 
-    async function doLogin(e){
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      msg.textContent = '';
-      const password = (pwd.value || '').trim();
-      if(!password){ msg.textContent='Digite a senha.'; return; }
+      msgLogin.textContent = '';
+      const password = (pwdInput.value || '').trim();
+      if(!password){ msgLogin.textContent = 'Digite a senha.'; return; }
 
-      const r = await fetch('/login',{
+      const r = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({password})
+        body: JSON.stringify({ password })
       });
       const d = await r.json();
-      if(!r.ok){ msg.textContent = d?.error || 'Senha incorreta.'; return; }
-      // sucesso → vai para o chat
-      window.location.href = '/chat';
+      if(!r.ok){ msgLogin.textContent = d?.error || 'Senha incorreta.'; return; }
+
+      // Sucesso: mostra o chat e libera os campos
+      chatArea.hidden = false;
+      document.querySelector('.hero').classList.add('hero-compact');
+
+      qInput.removeAttribute('disabled');
+      btnSend.removeAttribute('disabled');
+
+      // foco e rolagem até o campo de pergunta
+      qInput.focus();
+      document.querySelector('.ask-row').scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+      // limpa a senha do campo
+      pwdInput.value = '';
+    });
+
+    // ===== CHAT =====
+    const chat = document.getElementById('chat');
+
+    function addBlock(label, html, role){
+      const el = document.createElement('div');
+      el.className = 'msg-block' + (role==='user' ? ' user' : '');
+      el.innerHTML = `<div class="msg-label">${label}:</div><div>${html}</div>`;
+      chat.appendChild(el);
+      chat.scrollTop = chat.scrollHeight;
+      return el;
     }
 
-    form.addEventListener('submit', doLogin);
-  })();
+    async function ask(){
+      const question = (qInput.value || '').trim();
+      if(!question) return;
+
+      // Mostra pergunta do usuário
+      addBlock('Usuário', question, 'user');
+      qInput.value = '';
+
+      // Placeholder do bot enquanto processa
+      const thinking = addBlock('Licitabot', '...', 'bot');
+
+      try{
+        const r = await fetch('/ask', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({question})
+        });
+        const d = await r.json();
+        const reply = d?.answer || 'Sem resposta.';
+        thinking.innerHTML =
+          `<div class="msg-label">Licitabot:</div><div>${reply}</div>`;
+      }catch(e){
+        thinking.innerHTML =
+          `<div class="msg-label">Licitabot:</div><div>Erro ao processar sua pergunta.</div>`;
+      }
+    }
+
+    btnSend.onclick = ask;
+    qInput.addEventListener('keydown', e => { if(!qInput.disabled && e.key==='Enter') ask(); });
   </script>
 </body>
 </html>
