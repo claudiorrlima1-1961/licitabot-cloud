@@ -253,18 +253,12 @@ async def upload_page():
     """
     return HTMLResponse(html)
 
-# ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
+# ============ CONEXÃO DO ROUTER DE UPLOAD ============
+app.include_router(router)
 
-# ADICIONE ESTAS LINHAS:
-try:
-    from main import app
-    app.include_router(router)
-except ImportError:
-    try:
-        from app.main import app
-        app.include_router(router)
-    except ImportError:
-        pass
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 
