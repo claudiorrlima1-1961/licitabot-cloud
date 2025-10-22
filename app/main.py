@@ -253,13 +253,19 @@ async def upload_page():
     """
     return HTMLResponse(html)
 
+# ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
 
+# ADICIONE ESTAS LINHAS:
 try:
     from main import app
     app.include_router(router)
-    print("✅ Router de upload incluído com sucesso!")
 except ImportError:
-    print("⚠️  Router de upload pronto para inclusão manual")
+    try:
+        from app.main import app
+        app.include_router(router)
+    except ImportError:
+        pass
+
 
 
 # ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
