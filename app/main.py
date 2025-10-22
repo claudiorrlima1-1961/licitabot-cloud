@@ -114,28 +114,30 @@ async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(N
 from typing import Optional
 import os
 
-# -# =# ====================== BLOCO DE UPLOAD (ADMIN) ======================
-import os, logging
+# # # ====================== BLOCO DE UPLOAD (ADMIN) ======================
+import os
+import logging
 from typing import Optional
-from fastapi import APIRouter, UploadFile, File, Header, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 
-# logger para ver mensagens no Render (Logs)
+# IMPORTAÇÕES CERTAS (inclui HTTPException!)
+from fastapi import APIRouter, UploadFile, File, Header, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+
 log = logging.getLogger("upload")
 log.setLevel(logging.INFO)
 
 router = APIRouter()
 
-# Senha do admin (defina no Render → Environment → ADMIN_UPLOAD_TOKEN)
+# Senha do admin (configure no Render → Environment → ADMIN_UPLOAD_TOKEN)
 ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
 
 # Pasta de destino (no Render, /tmp é sempre gravável)
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
+UPLOAD_DIR = "/tmp"
 
 def _verifica_gravacao(caminho: str) -> None:
     """Confere se o arquivo foi gravado e é legível."""
     if not os.path.exists(caminho):
-        raise RuntimeError("Arquivo não encontrado após o upload.")
+        raise RuntimeError("Arquivo não foi encontrado após o upload.")
     with open(caminho, "rb") as fh:
         _ = fh.read(1024)  # valida leitura
 
@@ -144,20 +146,19 @@ async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None, convert_underscores=False),
 ):
-    # 1) Segurança
+    # 1) Segurança (token de admin)
     if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
-        raise HTTPException(status_code=401, detail="Token incorreto")
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
-    # 2) Tipo
+    # 2) Tipo do arquivo
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # 3) Salvar em blocos (robusto)
+    # 3) Gravar em /tmp com escrita em blocos
     try:
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
         destino = os.path.join(UPLOAD_DIR, file.filename)
 
-        # zera o ponteiro (por garantia) e grava em chunks de 1MB
+        # grava em chunks de 1MB (não estoura memória)
         with open(destino, "wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
@@ -166,18 +167,18 @@ async def upload_pdf(
                 buffer.write(chunk)
 
         _verifica_gravacao(destino)
-        log.info(f"PDF salvo: {destino}")
+        log.info(f"[UPLOAD] PDF salvo: {destino}")
 
     except Exception as e:
         log.exception("Falha ao salvar PDF")
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    # 4) (Opcional) Indexação real do seu RAG entrará aqui no futuro
-    return {"status": "ok", "filename": file.filename, "path": destino}
+    # 4) (Opcional) Aqui você pluga a indexação do seu RAG no futuro
+    return {"status": "ok", "filename": file.filename, "saved_to": destino}
 
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page():
-    """Tela simples para enviar 1+ PDFs. A validação real ocorre em /upload_pdf."""
+    """Tela simples para enviar 1+ PDFs (a validação real é no /upload_pdf)."""
     html = """
     <!doctype html>
     <html lang="pt-BR">
