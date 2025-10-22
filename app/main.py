@@ -1,13 +1,11 @@
-from fastapi import (
+from fastapi import HTTPException,
     FastAPI,
     Request,
     UploadFile,
     File,
     Header,
-    HTTPException,
     Depends,
     Response,
-)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
