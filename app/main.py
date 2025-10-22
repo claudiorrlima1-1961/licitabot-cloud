@@ -114,49 +114,130 @@ async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(N
 from typing import Optional
 import os
 
-# --- CONFIGURAÇÃO ---
+# --- # ======================
+# UPLOAD DE PDF (protegido) + TELINHA /upload
+# ======================
+import os
+from typing import Optional
+from fastapi import UploadFile, File, Header, HTTPException
+from fastapi.responses import HTMLResponse
+
+# senha do admin (use a mesma que você quer digitar no /docs e na telinha)
 ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
+
+# pasta segura no Render (sempre gravável)
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
 
 def index_pdf(file_path: str) -> int:
     """
-    Função simulada de indexação do PDF.
-    No futuro, aqui entra seu código real de embeddings.
+    Versão provisória e segura:
+    - Confirma que o arquivo foi salvo
+    - Lê 1KB só para validar
+    - (depois, troque por sua indexação real)
     """
-    print(f"📄 Indexando {file_path} ...")
-    return 200
+    if not os.path.exists(file_path):
+        raise RuntimeError(f"Arquivo não encontrado após upload: {file_path}")
+    with open(file_path, "rb") as fh:
+        _ = fh.read(1024)
+    return 1  # simulando 1 chunk indexado
 
 @app.post("/upload_pdf")
 async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None, convert_underscores=False)
 ):
-    """
-    Recebe e processa PDFs enviados via HTTP.
-    Protegido com senha (ADMIN_UPLOAD_TOKEN).
-    """
-    # --- Segurança ---
+    # 1) segurança
     if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token incorreto")
 
-    # --- Verifica tipo ---
+    # 2) só PDF
     if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=422, detail="Envie apenas arquivos PDF")
+        raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # --- Salva o arquivo temporariamente ---
-    os.makedirs("uploads", exist_ok=True)
-    file_path = os.path.join("uploads", file.filename)
-    with open(file_path, "wb") as f:
-        f.write(await file.read())
-
-    # --- Indexa o PDF ---
+    # 3) salvar
     try:
-        chunks = index_pdf(file_path)
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        save_path = os.path.join(UPLOAD_DIR, file.filename)
+        content = await file.read()
+        with open(save_path, "wb") as out:
+            out.write(content)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao processar PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {e}")
+
+    # 4) indexar (placeholder)
+    try:
+        chunks = index_pdf(save_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao indexar PDF: {e}")
 
     return {"status": "ok", "filename": file.filename, "chunks": chunks}
 
+@app.get("/upload", response_class=HTMLResponse)
+async def upload_page():
+    """
+    Telinha simples de upload (admin). A checagem real é no /upload_pdf (header X-Admin-Token).
+    """
+    html = """
+    <!doctype html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="utf-8"/>
+      <title>Upload de PDFs — Licitabot</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      <style>
+        :root { --bg:#0f2f3d; --card:#ffffff; --btn:#0b3d5c; --txt:#1e293b; }
+        body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f4f6f8; color:var(--txt); }
+        .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+        .card { width:100%; max-width:420px; background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.15); padding:24px; }
+        h1 { margin:0 0 8px; font-size:20px; color:#0b2942; }
+        p.sub { margin:0 0 16px; color:#475569; font-size:14px; }
+        input,button{ width:100%; box-sizing:border-box; }
+        input[type=password], input[type=file]{ margin:8px 0 12px; padding:10px; border:1px solid #cbd5e1; border-radius:10px; }
+        button{ background:var(--btn); color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:600; }
+        button:hover{ filter:brightness(1.05); }
+        .status{ margin-top:12px; font-size:14px; color:#334155; max-height:220px; overflow:auto; }
+        .ok{ color:#166534; } .err{ color:#991b1b; }
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <div class="card">
+          <h1>Envio de PDFs (Admin)</h1>
+          <p class="sub">Digite a senha de administrador e selecione um ou mais PDFs.</p>
+          <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
+          <input id="arquivo" type="file" multiple accept="application/pdf"/>
+          <button onclick="enviar()">Enviar</button>
+          <div id="status" class="status"></div>
+        </div>
+      </div>
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+      <script>
+        async function enviar() {
+          const senha = document.getElementById('senha').value;
+          const arquivos = document.getElementById('arquivo').files;
+          const status = document.getElementById('status');
+          if (!senha) { status.innerHTML = '<p class="err">Informe a senha.</p>'; return; }
+          if (!arquivos.length) { status.innerHTML = '<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
+
+          status.innerHTML = '';
+          for (let i=0;i<arquivos.length;i++){
+            const fd = new FormData(); fd.append('file', arquivos[i]);
+            try{
+              const r = await fetch('/upload_pdf', { method:'POST', headers:{'X-Admin-Token':senha}, body:fd });
+              if(r.ok){
+                const j = await r.json();
+                status.innerHTML += '<p class="ok">✅ '+ j.filename +' enviado.</p>';
+              } else {
+                const t = await r.text();
+                status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+t+'</p>';
+              }
+            }catch(e){
+              status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+e.message+'</p>';
+            }
+          }
+        }
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)
