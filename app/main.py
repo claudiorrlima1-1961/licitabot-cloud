@@ -253,6 +253,6 @@ async def upload_page():
     """
     return HTMLResponse(html)
 
-# Inclui o router sem interferir no resto do app
-app.include_router(router)
+
+
 # ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
