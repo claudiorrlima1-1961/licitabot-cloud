@@ -1,11 +1,8 @@
 fastapi
-uvicórnio
-python-multipart
+uvicorn
 jinja2
-aberto>=1.40.0
+python-multipart
+openai>=1.40.0
 chromadb
 pypdf
-token do TikTok
-python-multipart>=0,0,9
-uvicórnio
-aberto
+tiktoken
