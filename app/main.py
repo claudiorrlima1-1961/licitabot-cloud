@@ -115,25 +115,27 @@ from typing import Optional
 import os
 
 # --- # ======================
-# UPLOAD DE PDF (protegido) + TELINHA /upload
-# ======================
+# # === INÍCIO: BLOCO DE UPLOAD (COLE NO FINAL DO ARQUIVO) ======================
 import os
 from typing import Optional
-from fastapi import UploadFile, File, Header, HTTPException
+from fastapi import APIRouter, UploadFile, File, Header, HTTPException
 from fastapi.responses import HTMLResponse
 
-# senha do admin (use a mesma que você quer digitar no /docs e na telinha)
+# Router próprio (evita conflito com o resto do seu app)
+router = APIRouter()
+
+# Senha para upload (defina no Render em "Environment" como ADMIN_UPLOAD_TOKEN)
 ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
 
-# pasta segura no Render (sempre gravável)
+# Pasta segura no Render. /tmp é sempre gravável
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
 
-def index_pdf(file_path: str) -> int:
+def _index_pdf_placeholder(file_path: str) -> int:
     """
-    Versão provisória e segura:
-    - Confirma que o arquivo foi salvo
-    - Lê 1KB só para validar
-    - (depois, troque por sua indexação real)
+    Placeholder seguro:
+      - Confirma que o arquivo existe.
+      - Lê 1KB apenas para validar acesso.
+      - (Depois você pode trocar por sua indexação RAG real.)
     """
     if not os.path.exists(file_path):
         raise RuntimeError(f"Arquivo não encontrado após upload: {file_path}")
@@ -141,98 +143,108 @@ def index_pdf(file_path: str) -> int:
         _ = fh.read(1024)
     return 1  # simulando 1 chunk indexado
 
-@app.post("/upload_pdf")
+@router.post("/upload_pdf")
 async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None, convert_underscores=False)
 ):
-    # 1) segurança
+    # 1) Segurança: checa token do admin
     if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token incorreto")
 
-    # 2) só PDF
+    # 2) Aceita apenas PDF
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # 3) salvar
+    # 3) Salvar com robustez em /tmp/uploads
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         save_path = os.path.join(UPLOAD_DIR, file.filename)
+
         content = await file.read()
         with open(save_path, "wb") as out:
             out.write(content)
+
+        if not os.path.exists(save_path):
+            raise RuntimeError("Arquivo não foi gravado corretamente no servidor.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {e}")
 
-    # 4) indexar (placeholder)
+    # 4) Indexar (placeholder seguro)
     try:
-        chunks = index_pdf(save_path)
+        chunks = _index_pdf_placeholder(save_path)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao indexar PDF: {e}")
 
-    return {"status": "ok", "filename": file.filename, "chunks": chunks}
+    # 5) OK
+    return {"status": "ok", "filename": file.filename, "chunks": chunks, "path": save_path}
 
-@app.get("/upload", response_class=HTMLResponse)
+@router.get("/upload", response_class=HTMLResponse)
 async def upload_page():
     """
-    Telinha simples de upload (admin). A checagem real é no /upload_pdf (header X-Admin-Token).
+    Telinha simples de upload. A checagem real é no /upload_pdf (via header X-Admin-Token).
     """
     html = """
     <!doctype html>
     <html lang="pt-BR">
     <head>
       <meta charset="utf-8"/>
-      <title>Upload de PDFs — Licitabot</title>
       <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      <title>Upload de PDFs — Licitabot</title>
       <style>
-        :root { --bg:#0f2f3d; --card:#ffffff; --btn:#0b3d5c; --txt:#1e293b; }
-        body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#f4f6f8; color:var(--txt); }
-        .wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
-        .card { width:100%; max-width:420px; background:var(--card); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.15); padding:24px; }
-        h1 { margin:0 0 8px; font-size:20px; color:#0b2942; }
-        p.sub { margin:0 0 16px; color:#475569; font-size:14px; }
-        input,button{ width:100%; box-sizing:border-box; }
-        input[type=password], input[type=file]{ margin:8px 0 12px; padding:10px; border:1px solid #cbd5e1; border-radius:10px; }
-        button{ background:var(--btn); color:white; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:600; }
-        button:hover{ filter:brightness(1.05); }
-        .status{ margin-top:12px; font-size:14px; color:#334155; max-height:220px; overflow:auto; }
-        .ok{ color:#166534; } .err{ color:#991b1b; }
+        :root { --bg:#0f2f3d; --card:#ffffff; --btn:#0b3d5c; --txt:#1f2937; }
+        html,body{height:100%; margin:0}
+        body{font-family:Arial,Helvetica,sans-serif; background:#f4f6f8; color:var(--txt); display:flex; align-items:center; justify-content:center; padding:24px;}
+        .card{width:100%; max-width:440px; background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); padding:24px;}
+        h1{margin:0 0 8px; font-size:22px; color:#0b2942;}
+        .sub{margin:0 0 16px; font-size:14px; color:#475569;}
+        input,button{width:100%; box-sizing:border-box;}
+        input[type=password],input[type=file]{margin:8px 0 12px; padding:10px; border:1px solid #cbd5e1; border-radius:10px;}
+        button{background:var(--btn); color:#fff; border:none; padding:12px; border-radius:10px; font-weight:600; cursor:pointer;}
+        button:hover{filter:brightness(1.05);}
+        #status{margin-top:12px; font-size:14px; max-height:240px; overflow:auto;}
+        .ok{color:#166534} .err{color:#991b1b}
       </style>
     </head>
     <body>
-      <div class="wrap">
-        <div class="card">
-          <h1>Envio de PDFs (Admin)</h1>
-          <p class="sub">Digite a senha de administrador e selecione um ou mais PDFs.</p>
-          <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
-          <input id="arquivo" type="file" multiple accept="application/pdf"/>
-          <button onclick="enviar()">Enviar</button>
-          <div id="status" class="status"></div>
-        </div>
+      <div class="card">
+        <h1>Envio de PDFs (Admin)</h1>
+        <p class="sub">Digite a senha de administrador e selecione um ou mais PDFs.</p>
+        <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
+        <input id="arquivo" type="file" accept="application/pdf" multiple/>
+        <button onclick="enviar()">Enviar</button>
+        <div id="status"></div>
       </div>
 
       <script>
-        async function enviar() {
+        async function enviar(){
           const senha = document.getElementById('senha').value;
           const arquivos = document.getElementById('arquivo').files;
           const status = document.getElementById('status');
-          if (!senha) { status.innerHTML = '<p class="err">Informe a senha.</p>'; return; }
-          if (!arquivos.length) { status.innerHTML = '<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
-
           status.innerHTML = '';
-          for (let i=0;i<arquivos.length;i++){
-            const fd = new FormData(); fd.append('file', arquivos[i]);
+          if(!senha){ status.innerHTML = '<p class="err">Informe a senha.</p>'; return; }
+          if(!arquivos.length){ status.innerHTML = '<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
+
+          for(let i=0;i<arquivos.length;i++){
+            const fd = new FormData();
+            fd.append('file', arquivos[i]);
+
             try{
-              const r = await fetch('/upload_pdf', { method:'POST', headers:{'X-Admin-Token':senha}, body:fd });
+              const r = await fetch('/upload_pdf', {
+                method:'POST',
+                headers: { 'X-Admin-Token': senha },
+                body: fd
+              });
+
               if(r.ok){
                 const j = await r.json();
                 status.innerHTML += '<p class="ok">✅ '+ j.filename +' enviado.</p>';
-              } else {
+              }else{
                 const t = await r.text();
-                status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+t+'</p>';
+                status.innerHTML += '<p class="err">❌ '+ arquivos[i].name +': '+ t +'</p>';
               }
             }catch(e){
-              status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+e.message+'</p>';
+              status.innerHTML += '<p class="err">❌ '+ arquivos[i].name +': '+ e.message +'</p>';
             }
           }
         }
@@ -241,3 +253,13 @@ async def upload_page():
     </html>
     """
     return HTMLResponse(html)
+
+# Inclui o router no seu app existente (não altera o restante do sistema)
+try:
+    app.include_router(router)
+except NameError:
+    # Se seu app principal tiver outro nome, ajuste aqui:
+    from fastapi import FastAPI
+    _fallback_app = FastAPI()
+    _fallback_app.include_router(router)
+# === FIM: BLOCO DE UPLOAD =====================================================
