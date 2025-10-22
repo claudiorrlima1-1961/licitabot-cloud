@@ -114,76 +114,67 @@ async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(N
 from typing import Optional
 import os
 
-# --- # ======================
-# # === INÍCIO: BLOCO DE UPLOAD (COLE NO FINAL DO ARQUIVO) ======================
+# -# ====================== BLOCO DE UPLOAD (ADMIN) ======================
 import os
 from typing import Optional
 from fastapi import APIRouter, UploadFile, File, Header, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 
-# Router próprio (evita conflito com o resto do seu app)
 router = APIRouter()
 
-# Senha para upload (defina no Render em "Environment" como ADMIN_UPLOAD_TOKEN)
+# Senha do admin (defina no Render → Environment)
 ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
 
-# Pasta segura no Render. /tmp é sempre gravável
+# Pasta de destino (no Render, /tmp é sempre gravável)
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/tmp/uploads")
 
-def _index_pdf_placeholder(file_path: str) -> int:
-    """
-    Placeholder seguro:
-      - Confirma que o arquivo existe.
-      - Lê 1KB apenas para validar acesso.
-      - (Depois você pode trocar por sua indexação RAG real.)
-    """
-    if not os.path.exists(file_path):
-        raise RuntimeError(f"Arquivo não encontrado após upload: {file_path}")
-    with open(file_path, "rb") as fh:
+def _verifica_gravacao(caminho: str) -> None:
+    """Confere se o arquivo foi gravado com sucesso e se é legível."""
+    if not os.path.exists(caminho):
+        raise RuntimeError("Arquivo não encontrado após o upload.")
+    # Tenta ler 1KB só para validar acesso
+    with open(caminho, "rb") as fh:
         _ = fh.read(1024)
-    return 1  # simulando 1 chunk indexado
 
-@router.post("/upload_pdf")
+@router.post("/upload_pdf", response_class=PlainTextResponse)
 async def upload_pdf(
     file: UploadFile = File(...),
-    x_admin_token: Optional[str] = Header(None, convert_underscores=False)
+    x_admin_token: Optional[str] = Header(None, convert_underscores=False),
 ):
-    # 1) Segurança: checa token do admin
+    # 1) Segurança
     if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token incorreto")
 
-    # 2) Aceita apenas PDF
+    # 2) Tipo de arquivo
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # 3) Salvar com robustez em /tmp/uploads
+    # 3) Salvar em blocos (robusto)
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        save_path = os.path.join(UPLOAD_DIR, file.filename)
+        destino = os.path.join(UPLOAD_DIR, file.filename)
 
-        content = await file.read()
-        with open(save_path, "wb") as out:
-            out.write(content)
+        # grava em chunks de 1MB (não estoura memória)
+        with open(destino, "wb") as buffer:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                buffer.write(chunk)
 
-        if not os.path.exists(save_path):
-            raise RuntimeError("Arquivo não foi gravado corretamente no servidor.")
+        _verifica_gravacao(destino)
+
     except Exception as e:
+        # Mensagem clara para depuração
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {e}")
 
-    # 4) Indexar (placeholder seguro)
-    try:
-        chunks = _index_pdf_placeholder(save_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao indexar PDF: {e}")
-
-    # 5) OK
-    return {"status": "ok", "filename": file.filename, "chunks": chunks, "path": save_path}
+    # 4) (Opcional) aqui vai a sua indexação RAG real
+    # por enquanto, só confirmamos o recebimento
+    return f"OK: {file.filename}"
 
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page():
-    """
-    Telinha simples de upload. A checagem real é no /upload_pdf (via header X-Admin-Token).
-    """
+    """Página simples para envio de 1+ PDFs (a checagem real está no /upload_pdf)."""
     html = """
     <!doctype html>
     <html lang="pt-BR">
@@ -192,24 +183,26 @@ async def upload_page():
       <meta name="viewport" content="width=device-width, initial-scale=1"/>
       <title>Upload de PDFs — Licitabot</title>
       <style>
-        :root { --bg:#0f2f3d; --card:#ffffff; --btn:#0b3d5c; --txt:#1f2937; }
-        html,body{height:100%; margin:0}
-        body{font-family:Arial,Helvetica,sans-serif; background:#f4f6f8; color:var(--txt); display:flex; align-items:center; justify-content:center; padding:24px;}
-        .card{width:100%; max-width:440px; background:#fff; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.12); padding:24px;}
-        h1{margin:0 0 8px; font-size:22px; color:#0b2942;}
-        .sub{margin:0 0 16px; font-size:14px; color:#475569;}
-        input,button{width:100%; box-sizing:border-box;}
-        input[type=password],input[type=file]{margin:8px 0 12px; padding:10px; border:1px solid #cbd5e1; border-radius:10px;}
-        button{background:var(--btn); color:#fff; border:none; padding:12px; border-radius:10px; font-weight:600; cursor:pointer;}
-        button:hover{filter:brightness(1.05);}
-        #status{margin-top:12px; font-size:14px; max-height:240px; overflow:auto;}
-        .ok{color:#166534} .err{color:#991b1b}
+        :root{--txt:#1f2937;--muted:#475569;--btn:#0b3d5c;}
+        html,body{height:100%;margin:0}
+        body{font-family:Arial,Helvetica,sans-serif;background:#f5f7fa;color:var(--txt);
+             display:flex;align-items:center;justify-content:center;padding:24px;}
+        .card{width:100%;max-width:460px;background:#fff;border-radius:16px;
+              box-shadow:0 10px 28px rgba(0,0,0,.12);padding:24px;}
+        h1{margin:0 0 8px;font-size:22px;color:#0b2942}
+        .sub{margin:0 0 16px;font-size:14px;color:var(--muted)}
+        input,button{width:100%;box-sizing:border-box}
+        input[type=password],input[type=file]{margin:8px 0 12px;padding:10px;border:1px solid #cbd5e1;border-radius:10px}
+        button{background:var(--btn);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer}
+        button:hover{filter:brightness(1.05)}
+        #status{margin-top:12px;font-size:14px;max-height:240px;overflow:auto}
+        .ok{color:#166534}.err{color:#991b1b}
       </style>
     </head>
     <body>
       <div class="card">
         <h1>Envio de PDFs (Admin)</h1>
-        <p class="sub">Digite a senha de administrador e selecione um ou mais PDFs.</p>
+        <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
         <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
         <input id="arquivo" type="file" accept="application/pdf" multiple/>
         <button onclick="enviar()">Enviar</button>
@@ -222,29 +215,26 @@ async def upload_page():
           const arquivos = document.getElementById('arquivo').files;
           const status = document.getElementById('status');
           status.innerHTML = '';
-          if(!senha){ status.innerHTML = '<p class="err">Informe a senha.</p>'; return; }
-          if(!arquivos.length){ status.innerHTML = '<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
+          if(!senha){ status.innerHTML='<p class="err">Informe a senha.</p>'; return; }
+          if(!arquivos.length){ status.innerHTML='<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
 
           for(let i=0;i<arquivos.length;i++){
-            const fd = new FormData();
-            fd.append('file', arquivos[i]);
-
+            const fd = new FormData(); fd.append('file', arquivos[i]);
             try{
               const r = await fetch('/upload_pdf', {
                 method:'POST',
-                headers: { 'X-Admin-Token': senha },
-                body: fd
+                headers:{'X-Admin-Token':senha},
+                body:fd
               });
-
               if(r.ok){
-                const j = await r.json();
-                status.innerHTML += '<p class="ok">✅ '+ j.filename +' enviado.</p>';
-              }else{
                 const t = await r.text();
-                status.innerHTML += '<p class="err">❌ '+ arquivos[i].name +': '+ t +'</p>';
+                status.innerHTML += '<p class="ok">✅ '+t+'</p>';
+              }else{
+                const e = await r.text();
+                status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+e+'</p>';
               }
-            }catch(e){
-              status.innerHTML += '<p class="err">❌ '+ arquivos[i].name +': '+ e.message +'</p>';
+            }catch(err){
+              status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+err.message+'</p>';
             }
           }
         }
@@ -254,12 +244,6 @@ async def upload_page():
     """
     return HTMLResponse(html)
 
-# Inclui o router no seu app existente (não altera o restante do sistema)
-try:
-    app.include_router(router)
-except NameError:
-    # Se seu app principal tiver outro nome, ajuste aqui:
-    from fastapi import FastAPI
-    _fallback_app = FastAPI()
-    _fallback_app.include_router(router)
-# === FIM: BLOCO DE UPLOAD =====================================================
+# Inclui o router sem interferir no resto do app
+app.include_router(router)
+# ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
