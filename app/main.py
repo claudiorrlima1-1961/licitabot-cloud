@@ -249,3 +249,62 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port)
+# ==================== TESTE DE TOKEN (DIAGNÓSTICO SIMPLES) ====================
+
+from fastapi.responses import PlainTextResponse
+
+@app.get("/testar_token", response_class=HTMLResponse)
+async def testar_token_page():
+    html = """
+    <!doctype html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="utf-8"/>
+      <meta name="viewport" content="width=device-width, initial-scale=1"/>
+      <title>Teste de Token — Licitabot</title>
+      <style>
+        body{font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#1f2937;
+             display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+        .card{background:#fff;padding:24px;border-radius:16px;box-shadow:0 8px 20px rgba(0,0,0,.1);
+              max-width:360px;width:100%;text-align:center;}
+        input{width:100%;padding:10px;margin:12px 0;border:1px solid #ccc;border-radius:8px;}
+        button{width:100%;background:#0b3d5c;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;}
+        button:hover{filter:brightness(1.05)}
+        #msg{margin-top:16px;font-weight:600;}
+        .ok{color:#166534}.err{color:#991b1b}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <h2>🔑 Teste de Token (Admin)</h2>
+        <p>Digite a senha configurada no Render (ADMIN_UPLOAD_TOKEN).</p>
+        <input type="password" id="token" placeholder="Senha do admin"/>
+        <button onclick="verificar()">Verificar</button>
+        <div id="msg"></div>
+      </div>
+      <script>
+        async function verificar(){
+          const senha = document.getElementById('token').value.trim();
+          const msg = document.getElementById('msg');
+          msg.innerHTML = '';
+          try{
+            const r = await fetch('/check_token', {headers:{'X-Admin-Token':senha}});
+            const t = await r.text();
+            if(r.ok){ msg.innerHTML = '<p class="ok">'+t+'</p>'; }
+            else{ msg.innerHTML = '<p class="err">'+t+'</p>'; }
+          }catch(e){
+            msg.innerHTML = '<p class="err">Erro de conexão</p>';
+          }
+        }
+      </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(html)
+
+@app.get("/check_token", response_class=PlainTextResponse)
+async def check_token(x_admin_token: Optional[str] = Header(None)):
+    if x_admin_token == ADMIN_UPLOAD_TOKEN:
+        return PlainTextResponse("✅ Token válido", status_code=200)
+    else:
+        return PlainTextResponse("❌ Token inválido", status_code=401)
