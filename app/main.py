@@ -8,7 +8,7 @@ import logging
 from typing import Optional, List, Tuple, Dict
 
 from fastapi import FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -84,7 +84,7 @@ def page_chat(request: Request):
 async def ask(
     payload: dict,
     ok: bool = Depends(require_auth),
-    x_admin_token: str = Header(None)
+    x_admin_token: Optional[str] = Header(None)
 ):
     q = (payload or {}).get("question", "").strip()
     if not q:
@@ -101,7 +101,7 @@ async def ask(
         ans = f"Erro ao consultar o modelo: {e}"
 
     # Se enviar o header X-Admin-Token válido, devolve também citações
-    if x_admin_token == ADMIN_TOKEN:
+    if (x_admin_token or "").strip() == ADMIN_TOKEN:
         return {
             "answer": ans,
             "citations": [
@@ -129,10 +129,10 @@ def _verifica_gravacao(caminho: str) -> None:
 @router.post("/upload_pdf", response_class=JSONResponse)
 async def upload_pdf(
     file: UploadFile = File(...),
-    x_admin_token: Optional[str] = Header(None, convert_underscores=False),
+    x_admin_token: Optional[str] = Header(None),  # ← correção: remove convert_underscores=False
 ):
-    # Segurança do admin
-    if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
+    # Segurança do admin (tolera espaços acidentais)
+    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
     # Somente PDF
@@ -207,7 +207,7 @@ async def upload_page():
 
       <script>
         async function enviar(){
-          const senha = document.getElementById('senha').value;
+          const senha = document.getElementById('senha').value.trim(); // ← correção: tira espaços
           const arquivos = document.getElementById('arquivo').files;
           const status = document.getElementById('status');
           status.innerHTML = '';
@@ -244,15 +244,7 @@ async def upload_page():
 app.include_router(router)
 # ==================== FIM DO BLOCO DE UPLOAD (ADMIN) =========================
 
-# ------------------------------ Uvicorn (Render) -----------------------------
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
 # ==================== TESTE DE TOKEN (DIAGNÓSTICO SIMPLES) ====================
-
-from fastapi.responses import PlainTextResponse
-
 @app.get("/testar_token", response_class=HTMLResponse)
 async def testar_token_page():
     html = """
@@ -304,7 +296,13 @@ async def testar_token_page():
 
 @app.get("/check_token", response_class=PlainTextResponse)
 async def check_token(x_admin_token: Optional[str] = Header(None)):
-    if x_admin_token == ADMIN_UPLOAD_TOKEN:
+    if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
         return PlainTextResponse("✅ Token válido", status_code=200)
     else:
         return PlainTextResponse("❌ Token inválido", status_code=401)
+
+# ------------------------------ Uvicorn (Render) -----------------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
