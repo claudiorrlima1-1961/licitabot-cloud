@@ -1,34 +1,38 @@
-from fastapi import ( HTTPException,
-    FastAPI,
-    Request,
-    UploadFile,
-    File,
-    Header,
-    Depends,
-    Response,
-)
+# -*- coding: utf-8 -*-
+import os
+import time
+import hmac
+import pathlib
+import hashlib
+import logging
+from typing import Optional, List, Tuple, Dict
+
+from fastapi import FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-import os, pathlib, hmac, hashlib, time
 
+# ---- Suas dependências de RAG (mantidas) ------------------------------------
 from .rag_store import ingest_paths, search, context_from_hits
 from .core import answer
 
+# -----------------------------------------------------------------------------
 app = FastAPI(title="Licitabot – Cloud")
 
-# Monta pastas
+# Pastas de assets
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Variáveis (strip para remover \n/ espaços)
+# -------------------- Variáveis de ambiente (com .strip) ---------------------
 ACCESS_PASSWORD = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
-ADMIN_TOKEN     = (os.getenv("ADMIN_TOKEN", "admin123") or "admin123").strip()
-SECRET_KEY      = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
+# Unificação: usa ADMIN_UPLOAD_TOKEN (se existir) ou ADMIN_TOKEN; fallback para admin123
+ADMIN_UPLOAD_TOKEN = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN") or "admin123").strip()
+ADMIN_TOKEN = ADMIN_UPLOAD_TOKEN  # compatível com /ask
+SECRET_KEY = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
 
-# Sessão
+# ----------------------------- Sessão simples --------------------------------
 SESSION_COOKIE = "licita_sess"
-SESSION_TTL    = 60 * 60 * 24 * 7  # 7 dias
+SESSION_TTL = 60 * 60 * 24 * 7  # 7 dias
 
 def make_token(username: str = "cliente") -> str:
     exp = int(time.time()) + SESSION_TTL
@@ -53,8 +57,7 @@ def require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Acesso não autorizado.")
     return True
 
-# ---- Rotas ----
-
+# ------------------------------- Páginas --------------------------------------
 @app.get("/", response_class=HTMLResponse)
 def page_login(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
@@ -66,10 +69,7 @@ async def login(payload: dict, response: Response):
         return JSONResponse({"ok": False, "error": "Senha incorreta."}, status_code=401)
     token = make_token("cliente")
     resp = JSONResponse({"ok": True})
-    resp.set_cookie(
-        SESSION_COOKIE, token,
-        max_age=SESSION_TTL, httponly=True, samesite="lax"
-    )
+    resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL, httponly=True, samesite="lax")
     return resp
 
 @app.get("/chat", response_class=HTMLResponse)
@@ -79,8 +79,13 @@ def page_chat(request: Request):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse("index.html", {"request": request})
 
+# ------------------------------- Chat (/ask) ----------------------------------
 @app.post("/ask")
-async def ask(payload: dict, ok: bool = Depends(require_auth), x_admin_token: str = Header(None)):
+async def ask(
+    payload: dict,
+    ok: bool = Depends(require_auth),
+    x_admin_token: str = Header(None)
+):
     q = (payload or {}).get("question", "").strip()
     if not q:
         return {"answer": "Por favor, escreva sua pergunta."}
@@ -95,6 +100,7 @@ async def ask(payload: dict, ok: bool = Depends(require_auth), x_admin_token: st
     except Exception as e:
         ans = f"Erro ao consultar o modelo: {e}"
 
+    # Se enviar o header X-Admin-Token válido, devolve também citações
     if x_admin_token == ADMIN_TOKEN:
         return {
             "answer": ans,
@@ -105,43 +111,16 @@ async def ask(payload: dict, ok: bool = Depends(require_auth), x_admin_token: st
         }
     return {"answer": ans}
 
-@app.post("/upload_pdf")
-async def upload_pdf(file: UploadFile = File(...), x_admin_token: str = Header(None)):
-    if x_admin_token != ADMIN_TOKEN:
-        raise HTTPException(status_code=401, detail="Token de admin inválido.")
-    pathlib.Path("/data/docs").mkdir(parents=True, exist_ok=True)
-    dest = f"/data/docs/{file.filename}"
-    with open(dest, "wb") as f:
-        f.write(await file.read())
-    ingest_paths([dest])
-    return {"ok": True, "indexed": file.filename}
-    from fastapi import UploadFile, File, Header, HTTPException
-from typing import Optional
-import os
-
-# # # ====================== BLOCO DE UPLOAD (ADMIN) ======================
-# ====================== BLOCO DE UPLOAD (ADMIN) ======================
-import os
-import logging
-from typing import Optional
-
-import fastapi  # usamos fastapi.HTTPException para evitar erro de import
-from fastapi import APIRouter, UploadFile, File, Header
-from fastapi.responses import HTMLResponse, JSONResponse
-
+# ====================== BLOCO DE UPLOAD (ADMIN) ==============================
 log = logging.getLogger("upload")
 log.setLevel(logging.INFO)
 
 router = APIRouter()
 
-# Senha do admin (defina no Render → Environment → ADMIN_UPLOAD_TOKEN)
-ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123")
-
-# Pasta de destino dentro do app (fica visível no contêiner do Render)
+# Pasta de destino dentro do app (mantida no repositório com .gitkeep)
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
 
 def _verifica_gravacao(caminho: str) -> None:
-    """Confere se o arquivo foi gravado e é legível."""
     if not os.path.exists(caminho):
         raise RuntimeError("Arquivo não foi encontrado após o upload.")
     with open(caminho, "rb") as fh:
@@ -152,20 +131,20 @@ async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None, convert_underscores=False),
 ):
-    # 1) Segurança (token de admin)
+    # Segurança do admin
     if not x_admin_token or x_admin_token != ADMIN_UPLOAD_TOKEN:
-        raise fastapi.HTTPException(status_code=401, detail="Token de administrador inválido.")
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
-    # 2) Tipo do arquivo
+    # Somente PDF
     if not file.filename.lower().endswith(".pdf"):
-        raise fastapi.HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
+        raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # 3) Gravar em blocos dentro de app/uploaded_pdfs
+    # Salvar e validar
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         destino = os.path.join(UPLOAD_DIR, file.filename)
 
-        # grava em chunks de 1MB (estável)
+        # grava em chunks de 1MB
         with open(destino, "wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
@@ -176,16 +155,22 @@ async def upload_pdf(
         _verifica_gravacao(destino)
         log.info(f"[UPLOAD] PDF salvo: {destino}")
 
+        # Indexa no seu RAG (opcional, mas já integrado)
+        try:
+            ingest_paths([destino])
+        except Exception as ie:
+            log.exception("Falha ao indexar PDF")
+            # não derruba o upload; apenas informa
+            return {"status": "ok", "filename": file.filename, "saved_to": f"app/uploaded_pdfs/{file.filename}", "index_error": str(ie)}
+
     except Exception as e:
         log.exception("Falha ao salvar PDF")
-        raise fastapi.HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
+        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    # 4) (Opcional) Aqui você pluga a indexação RAG no futuro
     return {"status": "ok", "filename": file.filename, "saved_to": f"app/uploaded_pdfs/{file.filename}"}
 
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page():
-    """Tela simples para enviar 1+ PDFs (a validação real é no /upload_pdf)."""
     html = """
     <!doctype html>
     <html lang="pt-BR">
@@ -255,6 +240,12 @@ async def upload_page():
     """
     return HTMLResponse(html)
 
-# Inclui o router sem interferir no restante do app
+# Inclui o router do upload
 app.include_router(router)
-# ==================== FIM DO BLOCO DE UPLOAD (ADMIN) ====================
+# ==================== FIM DO BLOCO DE UPLOAD (ADMIN) =========================
+
+# ------------------------------ Uvicorn (Render) -----------------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
