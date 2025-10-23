@@ -7,7 +7,10 @@ import hashlib
 import logging
 from typing import Optional, List, Tuple, Dict
 
-from fastapi import FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
+from fastapi import (
+    FastAPI, Request, UploadFile, File, Header, Depends,
+    Response, HTTPException, APIRouter, BackgroundTasks
+)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -120,54 +123,83 @@ router = APIRouter()
 # Pasta de destino dentro do app (mantida no repositório com .gitkeep)
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
 
+# Limite de tamanho (evita 502 no Render free)
+MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "60"))  # ajuste se precisar
+MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
+
 def _verifica_gravacao(caminho: str) -> None:
     if not os.path.exists(caminho):
         raise RuntimeError("Arquivo não foi encontrado após o upload.")
     with open(caminho, "rb") as fh:
         _ = fh.read(1024)  # valida leitura
 
+async def _indexar_em_background(destino: str):
+    try:
+        ingest_paths([destino])
+        logging.getLogger("upload").info(f"[UPLOAD] Indexado: {destino}")
+    except Exception as e:
+        logging.getLogger("upload").exception(f"[UPLOAD] Falha ao indexar {destino}: {e}")
+
 @router.post("/upload_pdf", response_class=JSONResponse)
 async def upload_pdf(
     file: UploadFile = File(...),
-    x_admin_token: Optional[str] = Header(None),  # ← correção: remove convert_underscores=False
+    x_admin_token: Optional[str] = Header(None),
+    tasks: BackgroundTasks = None,
 ):
-    # Segurança do admin (tolera espaços acidentais)
+    # 1) Segurança do admin (tolera espaços acidentais)
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
-    # Somente PDF
-    if not file.filename.lower().endswith(".pdf"):
+    # 2) Somente PDF
+    nome = (file.filename or "").strip()
+    if not nome.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    # Salvar e validar
+    # 3) Salvar com limite e em blocos (rápido)
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        destino = os.path.join(UPLOAD_DIR, file.filename)
+        destino = os.path.join(UPLOAD_DIR, nome)
 
-        # grava em chunks de 1MB
+        total = 0
         with open(destino, "wb") as buffer:
             while True:
-                chunk = await file.read(1024 * 1024)
+                chunk = await file.read(1024 * 1024)  # 1 MB
                 if not chunk:
                     break
+                total += len(chunk)
+                if total > MAX_UPLOAD_BYTES:
+                    try:
+                        buffer.close()
+                        os.remove(destino)
+                    except Exception:
+                        pass
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Arquivo excede {MAX_UPLOAD_MB} MB. Envie um PDF menor."
+                    )
                 buffer.write(chunk)
 
         _verifica_gravacao(destino)
-        log.info(f"[UPLOAD] PDF salvo: {destino}")
+        log.info(f"[UPLOAD] PDF salvo: {destino} ({total/1024/1024:.1f} MB)")
 
-        # Indexa no seu RAG (opcional, mas já integrado)
-        try:
-            ingest_paths([destino])
-        except Exception as ie:
-            log.exception("Falha ao indexar PDF")
-            # não derruba o upload; apenas informa
-            return {"status": "ok", "filename": file.filename, "saved_to": f"app/uploaded_pdfs/{file.filename}", "index_error": str(ie)}
-
+    except HTTPException:
+        # Propaga 401/413/422
+        raise
     except Exception as e:
         log.exception("Falha ao salvar PDF")
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    return {"status": "ok", "filename": file.filename, "saved_to": f"app/uploaded_pdfs/{file.filename}"}
+    # 4) Agenda indexação em segundo plano e responde imediatamente
+    if tasks is not None:
+        tasks.add_task(_indexar_em_background, destino)
+
+    return {
+        "status": "ok",
+        "filename": nome,
+        "saved_to": f"app/uploaded_pdfs/{nome}",
+        "indexed_async": True,
+        "tip": "Arquivo salvo e indexação iniciada em segundo plano."
+    }
 
 @router.get("/upload", response_class=HTMLResponse)
 async def upload_page():
@@ -207,7 +239,7 @@ async def upload_page():
 
       <script>
         async function enviar(){
-          const senha = document.getElementById('senha').value.trim(); // ← correção: tira espaços
+          const senha = document.getElementById('senha').value.trim();
           const arquivos = document.getElementById('arquivo').files;
           const status = document.getElementById('status');
           status.innerHTML = '';
@@ -224,7 +256,7 @@ async def upload_page():
               });
               if(r.ok){
                 const j = await r.json();
-                status.innerHTML += '<p class="ok">✅ '+ j.filename +' enviado.</p>';
+                status.innerHTML += '<p class="ok">✅ '+ j.filename +' enviado. Indexação em segundo plano.</p>';
               }else{
                 const e = await r.text();
                 status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+e+'</p>';
@@ -306,3 +338,4 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("app.main:app", host="0.0.0.0", port=port)
+            
