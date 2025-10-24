@@ -44,22 +44,32 @@ ACCESS_PASSWORD = os.getenv("ACCESS_PASSWORD", "1234").strip()
 ADMIN_UPLOAD_TOKEN = os.getenv("ADMIN_UPLOAD_TOKEN", "admin123").strip()
 SECRET_KEY = os.getenv("SECRET_KEY", "seguro-troque-isso").strip()
 
-# ==================== SISTEMA DE SESSÃO ====================
+# ==================== SISTEMA DE SESSÃO SIMPLIFICADO ====================
 SESSION_COOKIE = "licita_sess"
-SESSION_TTL = 60 * 60 * 24 * 7
 
-def make_token(username: str = "cliente") -> str:
-    exp = int(time.time()) + SESSION_TTL
-    payload = f"{username}:{exp}"
-    sig = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-    return f"{payload}:{sig}"
+def create_session_token():
+    """Cria um token de sessão simples"""
+    timestamp = str(int(time.time()))
+    token_data = f"user_{timestamp}"
+    signature = hmac.new(
+        SECRET_KEY.encode(), 
+        token_data.encode(), 
+        hashlib.sha256
+    ).hexdigest()
+    return f"{token_data}:{signature}"
 
-def verify_token(token: str) -> bool:
+def verify_session_token(token: str) -> bool:
+    """Verifica se o token de sessão é válido"""
+    if not token:
+        return False
     try:
-        username, exp, sig = token.split(":", 2)
-        payload = f"{username}:{exp}"
-        expected = hmac.new(SECRET_KEY.encode(), payload.encode(), hashlib.sha256).hexdigest()
-        return hmac.compare_digest(expected, sig) and int(exp) >= time.time()
+        token_data, signature = token.split(":", 1)
+        expected_signature = hmac.new(
+            SECRET_KEY.encode(),
+            token_data.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        return hmac.compare_digest(expected_signature, signature)
     except Exception:
         return False
 
@@ -80,26 +90,82 @@ async def login_page():
     <head>
         <title>Login - Licitabot</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 400px; margin: 100px auto; padding: 20px; }
-            .card { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            input[type="password"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
-            button { width: 100%; padding: 12px; background: #0b3d5c; color: white; border: none; border-radius: 5px; cursor: pointer; }
-            button:hover { background: #0a3350; }
-            .error { color: red; margin-top: 10px; }
+            body { 
+                font-family: Arial, sans-serif; 
+                max-width: 400px; 
+                margin: 100px auto; 
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                height: 100vh;
+            }
+            .card { 
+                background: #fff; 
+                padding: 40px; 
+                border-radius: 15px; 
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                text-align: center;
+            }
+            h2 {
+                color: #333;
+                margin-bottom: 10px;
+            }
+            .subtitle {
+                color: #666;
+                margin-bottom: 30px;
+            }
+            input[type="password"] { 
+                width: 100%; 
+                padding: 15px; 
+                margin: 10px 0; 
+                border: 2px solid #e1e5e9; 
+                border-radius: 8px;
+                font-size: 16px;
+                box-sizing: border-box;
+            }
+            input[type="password"]:focus {
+                border-color: #0b3d5c;
+                outline: none;
+            }
+            button { 
+                width: 100%; 
+                padding: 15px; 
+                background: #0b3d5c; 
+                color: white; 
+                border: none; 
+                border-radius: 8px; 
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                margin-top: 10px;
+            }
+            button:hover { 
+                background: #0a3350;
+                transform: translateY(-2px);
+                transition: all 0.2s;
+            }
+            .password-hint {
+                margin-top: 20px;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 5px;
+                font-size: 14px;
+                color: #666;
+            }
         </style>
     </head>
     <body>
         <div class="card">
-            <h2 style="text-align: center; color: #0b3d5c;">🔐 Licitabot</h2>
-            <p style="text-align: center;">Digite a senha de acesso</p>
+            <div style="font-size: 48px; margin-bottom: 20px;">🔐</div>
+            <h2>Licitabot</h2>
+            <p class="subtitle">Sistema de Gestão de Licitações</p>
             
             <form action="/login" method="post">
-                <input type="password" name="password" placeholder="Senha" required>
-                <button type="submit">Entrar</button>
+                <input type="password" name="password" placeholder="Digite a senha de acesso" required>
+                <button type="submit">🔓 Entrar no Sistema</button>
             </form>
             
-            <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #666;">
-                Senha padrão: <strong>1234</strong>
+            <div class="password-hint">
+                💡 <strong>Senha padrão:</strong> 1234
             </div>
         </div>
     </body>
@@ -111,33 +177,81 @@ async def login_page():
 async def login_submit(request: Request):
     """Processa o formulário de login"""
     try:
-        form = await request.form()
-        password = form.get("password", "").strip()
+        # Ler dados do formulário
+        form_data = await request.form()
+        password = form_data.get("password", "").strip()
+        
+        log.info(f"🔐 Tentativa de login com senha: {password}")
         
         if password == ACCESS_PASSWORD:
-            token = make_token()
+            # Cria token de sessão
+            token = create_session_token()
+            
+            # Redireciona para o chat
             response = RedirectResponse(url="/chat", status_code=303)
-            response.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL, httponly=True, samesite="lax")
+            response.set_cookie(
+                key=SESSION_COOKIE,
+                value=token,
+                max_age=60*60*24*7,  # 7 dias
+                httponly=True,
+                samesite="lax"
+            )
+            
+            log.info("✅ Login realizado com sucesso")
             return response
         else:
+            log.warning("❌ Tentativa de login com senha incorreta")
             # Retorna página de erro
             html = """
             <html>
-            <body style="font-family: Arial; text-align: center; padding: 50px;">
-                <h2 style="color: red;">❌ Senha incorreta</h2>
-                <p>A senha que você digitou está errada.</p>
-                <a href="/login" style="color: #0b3d5c;">← Voltar para o login</a>
+            <head>
+                <style>
+                    body { 
+                        font-family: Arial, sans-serif; 
+                        text-align: center; 
+                        padding: 50px;
+                        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+                        height: 100vh;
+                        color: white;
+                    }
+                    .error-card {
+                        background: white;
+                        color: #333;
+                        padding: 40px;
+                        border-radius: 15px;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        display: inline-block;
+                    }
+                    .btn {
+                        display: inline-block;
+                        padding: 12px 24px;
+                        background: #0b3d5c;
+                        color: white;
+                        text-decoration: none;
+                        border-radius: 8px;
+                        margin-top: 20px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="error-card">
+                    <div style="font-size: 48px; color: #dc2626;">❌</div>
+                    <h2 style="color: #dc2626;">Senha Incorreta</h2>
+                    <p>A senha que você digitou está errada.</p>
+                    <a href="/login" class="btn">← Voltar para o Login</a>
+                </div>
             </body>
             </html>
             """
             return HTMLResponse(html, status_code=401)
             
     except Exception as e:
+        log.error(f"💥 Erro no processo de login: {e}")
         html = f"""
         <html>
         <body style="font-family: Arial; text-align: center; padding: 50px;">
-            <h2 style="color: red;">❌ Erro no login</h2>
-            <p>Erro: {str(e)}</p>
+            <h2 style="color: red;">❌ Erro no Sistema</h2>
+            <p>Ocorreu um erro inesperado: {str(e)}</p>
             <a href="/login" style="color: #0b3d5c;">← Tentar novamente</a>
         </body>
         </html>
@@ -147,81 +261,180 @@ async def login_submit(request: Request):
 @app.get("/chat")
 async def chat_page(request: Request):
     """Página do chat"""
+    # Verifica se o usuário está logado
     token = request.cookies.get(SESSION_COOKIE)
-    if not verify_token(token):
+    
+    if not verify_session_token(token):
+        log.warning("🔒 Acesso não autorizado à página do chat")
         return RedirectResponse(url="/login", status_code=302)
+    
+    log.info("✅ Acesso autorizado ao chat")
     
     html = """
     <html>
     <head>
         <title>Chat - Licitabot</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-            .header { background: #0b3d5c; color: white; padding: 20px; border-radius: 10px 10px 0 0; }
-            .chat-container { border: 1px solid #ddd; border-radius: 0 0 10px 10px; padding: 20px; }
-            input[type="text"] { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
-            button { padding: 10px 20px; background: #0b3d5c; color: white; border: none; border-radius: 5px; cursor: pointer; }
-            button:hover { background: #0a3350; }
-            #resposta { margin-top: 20px; padding: 15px; border: 1px solid #e2e8f0; border-radius: 5px; min-height: 100px; background: #f8fafc; }
-            .nav { margin-bottom: 20px; }
-            .nav a { padding: 8px 16px; background: #e2e8f0; border-radius: 5px; text-decoration: none; color: #374151; margin-right: 10px; }
-            .nav a:hover { background: #cbd5e1; }
+            body { 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                max-width: 900px; 
+                margin: 0 auto; 
+                padding: 20px;
+                background: #f5f7fa;
+            }
+            .header { 
+                background: linear-gradient(135deg, #0b3d5c 0%, #0a3350 100%); 
+                color: white; 
+                padding: 30px; 
+                border-radius: 15px 15px 0 0; 
+                text-align: center;
+            }
+            .chat-container { 
+                background: white;
+                border: 1px solid #e1e5e9; 
+                border-radius: 0 0 15px 15px; 
+                padding: 30px; 
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            }
+            .input-group {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            input[type="text"] { 
+                flex: 1; 
+                padding: 15px; 
+                border: 2px solid #e1e5e9; 
+                border-radius: 10px; 
+                font-size: 16px;
+            }
+            input[type="text"]:focus {
+                border-color: #0b3d5c;
+                outline: none;
+            }
+            button { 
+                padding: 15px 30px; 
+                background: #0b3d5c; 
+                color: white; 
+                border: none; 
+                border-radius: 10px; 
+                cursor: pointer; 
+                font-size: 16px;
+                font-weight: bold;
+            }
+            button:hover { 
+                background: #0a3350;
+                transform: translateY(-2px);
+                transition: all 0.2s;
+            }
+            #resposta { 
+                margin-top: 20px; 
+                padding: 20px; 
+                border: 2px solid #e2e8f0; 
+                border-radius: 10px; 
+                min-height: 150px; 
+                background: #f8fafc;
+                line-height: 1.6;
+            }
+            .nav { 
+                margin-bottom: 20px; 
+                display: flex;
+                gap: 10px;
+            }
+            .nav a { 
+                padding: 12px 20px; 
+                background: white; 
+                border: 2px solid #e1e5e9;
+                border-radius: 8px; 
+                text-decoration: none; 
+                color: #374151; 
+                font-weight: bold;
+            }
+            .nav a:hover { 
+                background: #0b3d5c; 
+                color: white;
+                border-color: #0b3d5c;
+            }
+            .nav a.active {
+                background: #0b3d5c;
+                color: white;
+                border-color: #0b3d5c;
+            }
+            .loading {
+                color: #666;
+                font-style: italic;
+            }
+            .success {
+                color: #065f46;
+            }
+            .error {
+                color: #dc2626;
+            }
         </style>
     </head>
     <body>
         <div class="nav">
-            <a href="/chat">💬 Chat</a>
+            <a href="/chat" class="active">💬 Chat</a>
             <a href="/upload">📤 Upload</a>
             <a href="/pdfs">📁 PDFs</a>
-            <a href="/login" onclick="logout()">🚪 Sair</a>
+            <a href="/logout">🚪 Sair</a>
         </div>
         
         <div class="header">
-            <h2>💬 Licitabot - Assistente de Licitações</h2>
+            <h1>💬 Licitabot</h1>
+            <p>Assistente Inteligente para Licitações</p>
         </div>
         
         <div class="chat-container">
-            <div>
-                <input type="text" id="pergunta" placeholder="Digite sua pergunta sobre os documentos..." style="width: 70%; padding: 10px;">
-                <button onclick="perguntar()">Perguntar</button>
+            <div class="input-group">
+                <input type="text" id="pergunta" placeholder="Digite sua pergunta sobre licitações, editais, documentos..." autocomplete="off">
+                <button onclick="perguntar()">🔍 Perguntar</button>
             </div>
+            
             <div id="resposta">
-                Faça uma pergunta sobre seus documentos de licitação...
+                <div style="text-align: center; color: #666; padding: 40px;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">💼</div>
+                    <h3>Bem-vindo ao Licitabot!</h3>
+                    <p>Faça perguntas sobre seus documentos de licitação e editais.</p>
+                    <p><small>Exemplo: "Quais são os requisitos para participar da licitação?"</small></p>
+                </div>
             </div>
         </div>
         
         <script>
         async function perguntar() {
-            const pergunta = document.getElementById('pergunta').value;
+            const pergunta = document.getElementById('pergunta').value.trim();
             const resposta = document.getElementById('resposta');
             
             if (!pergunta) {
-                resposta.innerHTML = "❌ Por favor, digite uma pergunta";
+                resposta.innerHTML = '<div class="error">❌ Por favor, digite uma pergunta</div>';
                 return;
             }
             
-            resposta.innerHTML = "🔍 Pesquisando em seus documentos...";
+            resposta.innerHTML = '<div class="loading">🔍 Pesquisando em seus documentos...</div>';
             
             try {
                 const response = await fetch('/ask', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify({question: pergunta})
                 });
                 
                 if (response.ok) {
                     const data = await response.json();
-                    resposta.innerHTML = data.answer || "❌ Resposta vazia";
+                    resposta.innerHTML = `<div class="success">${data.answer}</div>`;
                 } else {
-                    resposta.innerHTML = "❌ Erro no servidor. Tente novamente.";
+                    if (response.status === 401) {
+                        resposta.innerHTML = '<div class="error">❌ Sessão expirada. <a href="/login">Faça login novamente</a></div>';
+                    } else {
+                        resposta.innerHTML = '<div class="error">❌ Erro no servidor. Tente novamente.</div>';
+                    }
                 }
             } catch (error) {
-                resposta.innerHTML = "❌ Erro de conexão: " + error.message;
+                resposta.innerHTML = `<div class="error">❌ Erro de conexão: ${error.message}</div>`;
             }
-        }
-        
-        function logout() {
-            document.cookie = "licita_sess=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
         }
         
         // Enter key support
@@ -235,6 +448,13 @@ async def chat_page(request: Request):
     </html>
     """
     return HTMLResponse(html)
+
+@app.get("/logout")
+async def logout():
+    """Faz logout do sistema"""
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie(SESSION_COOKIE)
+    return response
 
 # ==================== SISTEMA DE UPLOAD ====================
 upload_router = APIRouter()
@@ -284,36 +504,104 @@ async def upload_pdf(
         raise HTTPException(500, f"Erro ao salvar arquivo: {str(e)}")
 
 @upload_router.get("/upload")
-async def upload_page():
+async def upload_page(request: Request):
     """Página de upload"""
+    # Verifica se está logado
+    token = request.cookies.get(SESSION_COOKIE)
+    if not verify_session_token(token):
+        return RedirectResponse(url="/login", status_code=302)
+    
     html = """
     <html>
     <head>
         <title>Upload - Licitabot</title>
         <style>
-            body { font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; }
-            .card { background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-            input, button { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
-            button { background: #0b3d5c; color: white; border: none; cursor: pointer; }
-            button:hover { background: #0a3350; }
-            #status { margin-top: 20px; padding: 15px; border-radius: 5px; }
-            .success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-            .error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-            .nav { margin-bottom: 20px; }
-            .nav a { padding: 8px 16px; background: #e2e8f0; border-radius: 5px; text-decoration: none; color: #374151; margin-right: 10px; }
-            .nav a:hover { background: #cbd5e1; }
+            body { 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                max-width: 600px; 
+                margin: 0 auto; 
+                padding: 20px;
+                background: #f5f7fa;
+            }
+            .card { 
+                background: white; 
+                padding: 40px; 
+                border-radius: 15px; 
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            }
+            input, button { 
+                width: 100%; 
+                padding: 15px; 
+                margin: 10px 0; 
+                border: 2px solid #e1e5e9; 
+                border-radius: 10px; 
+                font-size: 16px;
+                box-sizing: border-box;
+            }
+            button { 
+                background: #0b3d5c; 
+                color: white; 
+                border: none; 
+                cursor: pointer; 
+                font-weight: bold;
+            }
+            button:hover { 
+                background: #0a3350;
+                transform: translateY(-2px);
+                transition: all 0.2s;
+            }
+            #status { 
+                margin-top: 20px; 
+                padding: 20px; 
+                border-radius: 10px; 
+            }
+            .success { 
+                background: #d1fae5; 
+                color: #065f46; 
+                border: 2px solid #a7f3d0; 
+            }
+            .error { 
+                background: #fee2e2; 
+                color: #991b1b; 
+                border: 2px solid #fecaca; 
+            }
+            .nav { 
+                margin-bottom: 20px; 
+                display: flex;
+                gap: 10px;
+            }
+            .nav a { 
+                padding: 12px 20px; 
+                background: white; 
+                border: 2px solid #e1e5e9;
+                border-radius: 8px; 
+                text-decoration: none; 
+                color: #374151; 
+                font-weight: bold;
+            }
+            .nav a:hover { 
+                background: #0b3d5c; 
+                color: white;
+                border-color: #0b3d5c;
+            }
+            .nav a.active {
+                background: #0b3d5c;
+                color: white;
+                border-color: #0b3d5c;
+            }
         </style>
     </head>
     <body>
         <div class="nav">
             <a href="/chat">💬 Chat</a>
-            <a href="/upload">📤 Upload</a>
+            <a href="/upload" class="active">📤 Upload</a>
             <a href="/pdfs">📁 PDFs</a>
+            <a href="/logout">🚪 Sair</a>
         </div>
         
         <div class="card">
-            <h2 style="text-align: center; color: #0b3d5c;">📤 Upload de PDFs</h2>
-            <p style="text-align: center;">Envie arquivos PDF para o sistema</p>
+            <h2 style="text-align: center; color: #0b3d5c; margin-bottom: 10px;">📤 Upload de PDFs</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">Envie arquivos PDF para o sistema</p>
             
             <input type="password" id="token" placeholder="Token de administrador (admin123)" required>
             <input type="file" id="arquivo" accept=".pdf" required>
@@ -372,8 +660,13 @@ async def upload_page():
     return HTMLResponse(html)
 
 @upload_router.get("/pdfs")
-async def list_pdfs_page():
+async def list_pdfs_page(request: Request):
     """Página para listar PDFs enviados"""
+    # Verifica se está logado
+    token = request.cookies.get(SESSION_COOKIE)
+    if not verify_session_token(token):
+        return RedirectResponse(url="/login", status_code=302)
+    
     try:
         files = []
         for filename in os.listdir(UPLOAD_DIR):
@@ -394,41 +687,103 @@ async def list_pdfs_page():
     <head>
         <title>PDFs - Licitabot</title>
         <style>
-            body {{ font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }}
+            body {{ 
+                font-family: 'Segoe UI', Arial, sans-serif; 
+                max-width: 800px; 
+                margin: 0 auto; 
+                padding: 20px;
+                background: #f5f7fa;
+            }}
             .file-list {{ margin-top: 20px; }}
-            .file-item {{ padding: 15px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }}
+            .file-item {{ 
+                padding: 20px; 
+                border: 2px solid #e1e5e9; 
+                border-radius: 10px; 
+                margin-bottom: 15px; 
+                display: flex; 
+                justify-content: space-between; 
+                align-items: center;
+                background: white;
+            }}
             .file-actions {{ display: flex; gap: 10px; }}
-            .btn {{ padding: 8px 16px; border-radius: 5px; text-decoration: none; font-size: 14px; }}
-            .btn-download {{ background: #0b3d5c; color: white; }}
-            .btn-delete {{ background: #dc2626; color: white; }}
-            .empty {{ text-align: center; color: #6b7280; padding: 40px; }}
-            .nav {{ margin-bottom: 20px; }}
-            .nav a {{ padding: 8px 16px; background: #e2e8f0; border-radius: 5px; text-decoration: none; color: #374151; margin-right: 10px; }}
-            .nav a:hover {{ background: #cbd5e1; }}
+            .btn {{ 
+                padding: 10px 20px; 
+                border-radius: 8px; 
+                text-decoration: none; 
+                font-size: 14px;
+                font-weight: bold;
+            }}
+            .btn-download {{ 
+                background: #0b3d5c; 
+                color: white; 
+            }}
+            .btn-download:hover {{
+                background: #0a3350;
+            }}
+            .empty {{ 
+                text-align: center; 
+                color: #6b7280; 
+                padding: 60px;
+                background: white;
+                border-radius: 10px;
+                border: 2px dashed #e1e5e9;
+            }}
+            .nav {{ 
+                margin-bottom: 20px; 
+                display: flex;
+                gap: 10px;
+            }}
+            .nav a {{ 
+                padding: 12px 20px; 
+                background: white; 
+                border: 2px solid #e1e5e9;
+                border-radius: 8px; 
+                text-decoration: none; 
+                color: #374151; 
+                font-weight: bold;
+            }}
+            .nav a:hover {{ 
+                background: #0b3d5c; 
+                color: white;
+                border-color: #0b3d5c;
+            }}
+            .nav a.active {{
+                background: #0b3d5c;
+                color: white;
+                border-color: #0b3d5c;
+            }}
         </style>
     </head>
     <body>
         <div class="nav">
             <a href="/chat">💬 Chat</a>
             <a href="/upload">📤 Upload</a>
-            <a href="/pdfs">📁 PDFs</a>
+            <a href="/pdfs" class="active">📁 PDFs</a>
+            <a href="/logout">🚪 Sair</a>
         </div>
         
-        <h2>📁 PDFs Enviados</h2>
+        <h2 style="color: #0b3d5c;">📁 PDFs Enviados</h2>
         <p>Total de arquivos: {len(files)}</p>
         
         <div class="file-list">
             {"".join([f'''
             <div class="file-item">
                 <div>
-                    <strong>📄 {f['name']}</strong><br>
-                    <small>📏 {f['size_mb']} MB</small>
+                    <strong style="font-size: 16px;">📄 {f['name']}</strong><br>
+                    <small style="color: #666;">📏 {f['size_mb']} MB</small>
                 </div>
                 <div class="file-actions">
                     <a href="/download_pdf/{f['name']}" class="btn btn-download">⬇️ Download</a>
                 </div>
             </div>
-            ''' for f in files]) if files else '<div class="empty">📭 Nenhum PDF enviado ainda</div>'}
+            ''' for f in files]) if files else '''
+            <div class="empty">
+                <div style="font-size: 48px; margin-bottom: 20px;">📭</div>
+                <h3>Nenhum PDF Enviado</h3>
+                <p>Vá para a página de upload para enviar seus primeiros documentos.</p>
+                <a href="/upload" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #0b3d5c; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;">📤 Fazer Upload</a>
+            </div>
+            '''}
         </div>
     </body>
     </html>
@@ -436,8 +791,13 @@ async def list_pdfs_page():
     return HTMLResponse(html)
 
 @upload_router.get("/download_pdf/{filename}")
-async def download_pdf(filename: str):
+async def download_pdf(filename: str, request: Request):
     """Faz download de um PDF"""
+    # Verifica se está logado
+    token = request.cookies.get(SESSION_COOKIE)
+    if not verify_session_token(token):
+        raise HTTPException(401, "Não autorizado")
+    
     file_path = os.path.join(UPLOAD_DIR, filename)
     
     if not os.path.exists(file_path):
@@ -455,7 +815,7 @@ async def ask_question(request: Request):
     """Endpoint de consulta"""
     # Verifica autenticação
     token = request.cookies.get(SESSION_COOKIE)
-    if not verify_token(token):
+    if not verify_session_token(token):
         raise HTTPException(401, "Não autorizado")
     
     try:
