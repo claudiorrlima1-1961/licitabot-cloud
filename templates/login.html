@@ -1,148 +1,209 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LICITABOT — Acesso & Chat</title>
-  <link rel="stylesheet" href="/static/style.css?v=17" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Envio de PDFs — Licitabot (Admin)</title>
+  <style>
+    :root{
+      --bg:#f5f7fa; --card:#ffffff; --ink:#0b2942; --muted:#475569;
+      --btn:#0b3d5c; --ok:#166534; --err:#991b1b; --chip:#eef2f7;
+      --shadow:0 12px 32px rgba(0,0,0,.12);
+    }
+    html,body{height:100%;margin:0}
+    body{
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color:#1f2937; display:flex; align-items:center;
+      justify-content:center; padding:28px;
+    }
+    .wrap{width:100%; max-width:820px;}
+    .toolbar{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:18px}
+    .tool{
+      background:#eaf1f7; border:1px solid #d7e2ee; color:#0b2942;
+      border-radius:16px; padding:16px; display:flex; align-items:center; gap:10px;
+      font-weight:700; cursor:pointer; user-select:none; transition:transform .05s ease-in;
+      justify-content:center;
+    }
+    .tool:hover{transform:translateY(-1px)}
+    .tool span{font-size:15px}
+    .card{
+      background:var(--card); border-radius:20px; box-shadow:var(--shadow);
+      padding:26px;
+    }
+    h1{margin:0 0 6px; color:var(--ink); font-size:28px}
+    .sub{margin:0 0 18px; color:var(--muted)}
+    .row{display:flex; gap:12px; margin-bottom:12px}
+    input[type=password], input[type=text]{
+      flex:1; padding:12px 14px; border:1px solid #cbd5e1; border-radius:12px; font-size:16px;
+    }
+    input[type=file]{flex:1; padding:10px; border:1px dashed #cbd5e1; border-radius:12px; background:#fff}
+    button.primary{
+      background:var(--btn); color:#fff; border:none; padding:12px 22px; border-radius:12px;
+      font-weight:800; cursor:pointer;
+    }
+    .status{margin-top:14px; font-size:14px; max-height:280px; overflow:auto}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+    .chip{display:inline-block; background:var(--chip); border:1px solid #dbe3ee; padding:4px 8px;
+      border-radius:999px; margin:4px 6px 0 0; font-size:12px}
+    .divider{height:1px; background:#e6eef6; margin:16px 0}
+    .muted{color:#64748b; font-size:13px; margin-top:8px}
+    .hidden{display:none}
+  </style>
 </head>
-<body class="layout">
-  <div class="shell">
-    <!-- CABEÇALHO + LOGIN -->
-    <header class="hero" id="login-area">
-      <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
+<body>
+  <div class="wrap">
+    <!-- Barra de atalhos -->
+    <div class="toolbar">
+      <div class="tool" id="btnUpload">
+        <div style="font-size:20px">📦</div> <span>Upload</span>
+      </div>
+      <div class="tool" id="btnListar">
+        <div style="font-size:20px">📂</div> <span>Ver PDFs</span>
+      </div>
+      <div class="tool" id="btnChat">
+        <div style="font-size:20px">💬</div> <span>Chat</span>
+      </div>
+    </div>
 
-      <!-- Destaque acima da senha -->
-      <div class="highlight">
-        <strong>(Destaque)</strong> Não é apenas um chatbot, mas uma excelente ferramenta de pesquisa em uma base de dados resultante de anos de experiência real e prática em licitações e contratos, aplicados a uma IA especializada.
+    <!-- Cartão principal -->
+    <div class="card" id="cardUpload">
+      <h1>Envio de PDFs (Admin)</h1>
+      <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
+
+      <div class="row">
+        <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
       </div>
 
-      <div class="login-card">
-        <form id="login-form" class="login-form">
-          <input id="pwd" class="input-lg" type="password" placeholder="Senha de acesso" autocomplete="current-password" />
-          <button id="go" class="btn-lg" type="submit">Entrar</button>
-        </form>
-        <div id="msg" class="msg"></div>
-
-        <!-- Quais as diferenças -->
-        <div class="benefits">
-          <div class="benefits-title">Quais as diferenças?</div>
-          <ul class="benefits-list">
-            <li>✅ <b>Base especializada</b> — não usamos dados genéricos da internet</li>
-            <li>✅ <b>Conhecimento prático</b> — anos de experiência prática em licitações e contratos</li>
-            <li>✅ <b>Respostas contextuais</b> — entende as nuances das áreas de licitações e contratos</li>
-            <li>✅ <b>Fontes citadas</b> — você sabe de onde vem a informação</li>
-          </ul>
-        </div>
-      </div>
-    </header>
-
-    <!-- CHAT (inicia oculto; input desabilitado até login OK) -->
-    <section class="chat-panel" id="chat-area" hidden>
-      <div class="chat-head">
-        <h2>LICITABOT — Licitações & Contratos</h2>
-        <p class="sub">
-          <b>Faça perguntas específicas sobre licitações e contratos</b><br>
-          <span class="sub-note">Experimente a diferença de uma IA treinada exclusivamente com documentos da área, não com conteúdo genérico.</span>
-        </p>
+      <div class="row">
+        <input id="arquivos" type="file" accept="application/pdf" multiple/>
       </div>
 
-      <!-- Janela de mensagens (vazia até o usuário perguntar) -->
-      <div id="chat" class="chat-box"></div>
-
-      <!-- Barra de pergunta (fica visível e “colada” ao fim do painel) -->
-      <div class="ask-row">
-        <input id="q" class="ask-lg" placeholder="Digite aqui a sua pergunta..." disabled />
-        <button id="send" class="btn-primary-lg" disabled>Perguntar</button>
+      <div class="row" style="justify-content:flex-end">
+        <button class="primary" id="btnEnviar">Enviar PDFs</button>
       </div>
 
-      <!-- Rodapé -->
-      <p class="legal">
-        Isto não substitui consulta/parecer jurídico formal.<br>
-        O assistivo usa base especializada refinada por anos de trabalho prático na área pelo Administrador Cláudio Lima — respostas mais precisas que IAs genéricas.
-      </p>
-    </section>
+      <div class="status" id="status"></div>
+
+      <div class="divider"></div>
+      <div class="muted">
+        Dica: após enviar os arquivos, a base é reindexada automaticamente.  
+        Você pode clicar em <b>Ver PDFs</b> para confirmar se os nomes apareceram na pasta do servidor.
+      </div>
+    </div>
+
+    <!-- Cartão de lista -->
+    <div class="card hidden" id="cardLista">
+      <h1>Arquivos no servidor</h1>
+      <p class="sub">Lista lida do diretório de uploads (persistente no Render).</p>
+      <div id="lista"></div>
+      <div class="row" style="justify-content:flex-end; margin-top:10px">
+        <button class="primary" id="btnVoltar">Voltar</button>
+      </div>
+    </div>
   </div>
 
   <script>
-    // ===== LOGIN =====
-    const form     = document.getElementById('login-form');
-    const pwdInput = document.getElementById('pwd');
-    const msgLogin = document.getElementById('msg');
-    const chatArea = document.getElementById('chat-area');
-    const qInput   = document.getElementById('q');
-    const btnSend  = document.getElementById('send');
+    const el = (id) => document.getElementById(id);
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      msgLogin.textContent = '';
-      const password = (pwdInput.value || '').trim();
-      if(!password){ msgLogin.textContent = 'Digite a senha.'; return; }
-
-      const r = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ password })
-      });
-      const d = await r.json();
-      if(!r.ok){ msgLogin.textContent = d?.error || 'Senha incorreta.'; return; }
-
-      // Sucesso: mostra o chat e libera os campos
-      chatArea.hidden = false;
-      document.querySelector('.hero').classList.add('hero-compact');
-
-      qInput.removeAttribute('disabled');
-      btnSend.removeAttribute('disabled');
-
-      // foco e rolagem até o campo de pergunta
-      qInput.focus();
-      document.querySelector('.ask-row').scrollIntoView({ behavior: 'smooth', block: 'end' });
-
-      // limpa a senha do campo
-      pwdInput.value = '';
-    });
-
-    // ===== CHAT =====
-    const chat = document.getElementById('chat');
-
-    function addBlock(label, html, role){
-      const el = document.createElement('div');
-      el.className = 'msg-block' + (role==='user' ? ' user' : '');
-      el.innerHTML = `<div class="msg-label">${label}:</div><div>${html}</div>`;
-      chat.appendChild(el);
-      chat.scrollTop = chat.scrollHeight;
-      return el;
+    // Alterna cartões mantendo seu layout atual
+    function showCard(which){
+      el('cardUpload').classList.add('hidden');
+      el('cardLista').classList.add('hidden');
+      el(which).classList.remove('hidden');
     }
 
-    async function ask(){
-      const question = (qInput.value || '').trim();
-      if(!question) return;
+    // Navegação
+    el('btnUpload').onclick = ()=> showCard('cardUpload');
+    el('btnListar').onclick = listarPDFs;
+    el('btnChat').onclick = ()=> window.location.href = '/chat';
+    el('btnVoltar').onclick = ()=> showCard('cardUpload');
 
-      // Mostra pergunta do usuário
-      addBlock('Usuário', question, 'user');
-      qInput.value = '';
+    // Upload + reindexação
+    el('btnEnviar').onclick = async () => {
+      const senha = el('senha').value.trim();
+      const arquivos = el('arquivos').files;
+      const out = el('status');
+      out.innerHTML = '';
 
-      // Placeholder do bot enquanto processa
-      const thinking = addBlock('Licitabot', '...', 'bot');
+      if(!senha){ out.innerHTML = '<p class="err">Informe a senha do admin.</p>'; return; }
+      if(!arquivos.length){ out.innerHTML = '<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
+
+      let enviados = 0;
+      for (let i=0; i<arquivos.length; i++){
+        const fd = new FormData();
+        fd.append('file', arquivos[i]);
+
+        try{
+          const r = await fetch('/upload_pdf', {
+            method:'POST',
+            headers:{ 'X-Admin-Token': senha },
+            body: fd
+          });
+
+          if(r.ok){
+            const j = await r.json();
+            out.innerHTML += `<div class="ok">✅ ${j.filename} salvo.</div>`;
+            enviados++;
+          }else{
+            const t = await r.text();
+            out.innerHTML += `<div class="err">❌ ${arquivos[i].name}: ${t}</div>`;
+          }
+        }catch(e){
+          out.innerHTML += `<div class="err">❌ ${arquivos[i].name}: ${e.message}</div>`;
+        }
+      }
+
+      // Reindexar se houve ao menos 1 sucesso
+      if(enviados > 0){
+        out.innerHTML += `<div class="chip">⌛ Reindexando base…</div>`;
+        try{
+          const re = await fetch('/reindex', { method:'POST', headers:{ 'X-Admin-Token': senha } });
+          const jr = await re.json();
+          if(re.ok && jr.ok){
+            out.innerHTML += `<div class="ok">📚 Indexados: ${jr.indexed}</div>`;
+            if (jr.files) out.innerHTML += `<div>${jr.files.map(f => `<span class="chip">${f}</span>`).join('')}</div>`;
+          }else{
+            out.innerHTML += `<div class="err">⚠️ Falha na indexação: ${jr.error || JSON.stringify(jr)}</div>`;
+          }
+        }catch(e){
+          out.innerHTML += `<div class="err">⚠️ Erro ao reindexar: ${e.message}</div>`;
+        }
+      }
+    };
+
+    // Ver PDFs no servidor (sem trocar backend)
+    async function listarPDFs(){
+      const senha = el('senha').value.trim();
+      const box = el('lista');
+      box.innerHTML = '';
+
+      if(!senha){
+        box.innerHTML = '<p class="err">Digite a senha no cartão de Upload e clique novamente em “Ver PDFs”.</p>';
+        showCard('cardLista');
+        return;
+      }
 
       try{
-        const r = await fetch('/ask', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({question})
-        });
-        const d = await r.json();
-        const reply = d?.answer || 'Sem resposta.';
-        thinking.innerHTML =
-          `<div class="msg-label">Licitabot:</div><div>${reply}</div>`;
+        const r = await fetch('/admin_diag', { headers:{ 'X-Admin-Token': senha } });
+        const j = await r.json();
+        if(!r.ok){ box.innerHTML = `<div class="err">${JSON.stringify(j)}</div>`; showCard('cardLista'); return; }
+
+        let html = '';
+        if(!j.UPLOAD_DIR_exists){
+          html += `<div class="err">Pasta não encontrada: ${j.UPLOAD_DIR}</div>`;
+        }else if(!j.UPLOAD_files || j.UPLOAD_files.length === 0){
+          html += `<div class="muted">Nenhum PDF enviado ainda.</div>`;
+        }else{
+          html += `<div class="muted">Diretório: <code>${j.UPLOAD_DIR}</code></div>`;
+          html += `<div style="margin-top:8px">${j.UPLOAD_files.map(f => `<span class="chip">${f}</span>`).join('')}</div>`;
+        }
+        box.innerHTML = html;
+        showCard('cardLista');
       }catch(e){
-        thinking.innerHTML =
-          `<div class="msg-label">Licitabot:</div><div>Erro ao processar sua pergunta.</div>`;
+        box.innerHTML = `<div class="err">${e.message}</div>`;
+        showCard('cardLista');
       }
     }
-
-    btnSend.onclick = ask;
-    qInput.addEventListener('keydown', e => { if(!qInput.disabled && e.key==='Enter') ask(); });
   </script>
 </body>
 </html>
