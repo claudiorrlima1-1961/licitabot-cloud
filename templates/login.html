@@ -1,50 +1,103 @@
-<script>
-async function enviar(){
-  const senha = document.getElementById('senha').value.trim();
-  const arquivos = document.getElementById('arquivo').files;
-  const status = document.getElementById('status');
-  status.innerHTML = '';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Licitabot – Login</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f3f4f6;
+      color: #1f2937;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 360px;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 12px;
+      color: #0b2942;
+      font-size: 24px;
+    }
+    p.sub {
+      margin-top: 0;
+      color: #475569;
+      font-size: 14px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 16px 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      background: #0b3d5c;
+      color: #fff;
+      border: none;
+      padding: 12px;
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      filter: brightness(1.1);
+    }
+    #msg {
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .ok { color: #166534; }
+    .err { color: #991b1b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Licitabot</h1>
+    <p class="sub">Digite a senha para acessar o chat.</p>
+    <input type="password" id="password" placeholder="Senha de acesso" />
+    <button onclick="entrar()">Entrar</button>
+    <div id="msg"></div>
+  </div>
 
-  if(!senha){ status.innerHTML='<p class="err">Informe a senha.</p>'; return; }
-  if(!arquivos.length){ status.innerHTML='<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
-
-  let houveSucesso = false;
-
-  for(let i=0;i<arquivos.length;i++){
-    const fd = new FormData(); fd.append('file', arquivos[i]);
-    try{
-      const r = await fetch('/upload_pdf', {
-        method:'POST',
-        headers:{'X-Admin-Token':senha},
-        body:fd
-      });
-      if(r.ok){
+  <script>
+    async function entrar() {
+      const senha = document.getElementById('password').value.trim();
+      const msg = document.getElementById('msg');
+      msg.innerHTML = '';
+      if (!senha) {
+        msg.innerHTML = '<p class="err">Informe a senha.</p>';
+        return;
+      }
+      try {
+        const r = await fetch('/login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ password: senha })
+        });
         const j = await r.json();
-        houveSucesso = true;
-        status.innerHTML += '<p class="ok">✅ '+ j.filename +' salvo.</p>';
-      }else{
-        const e = await r.text();
-        status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+e+'</p>';
+        if (j.ok) {
+          msg.innerHTML = '<p class="ok">✅ Acesso liberado!</p>';
+          setTimeout(() => window.location.href = '/chat', 800);
+        } else {
+          msg.innerHTML = '<p class="err">❌ ' + (j.error || 'Senha incorreta.') + '</p>';
+        }
+      } catch(e) {
+        msg.innerHTML = '<p class="err">Erro de conexão: ' + e.message + '</p>';
       }
-    }catch(err){
-      status.innerHTML += '<p class="err">❌ '+arquivos[i].name+': '+err.message+'</p>';
     }
-  }
-
-  // se salvou pelo menos um, dispara reindexação (rápida)
-  if(houveSucesso){
-    status.innerHTML += '<p>🔄 Indexando base…</p>';
-    try{
-      const r2 = await fetch('/reindex', {method:'POST', headers:{'X-Admin-Token':senha}});
-      const j2 = await r2.json();
-      if(r2.ok && j2.ok){
-        status.innerHTML += '<p class="ok">✅ Indexados: '+ j2.indexed +'</p>';
-      }else{
-        status.innerHTML += '<p class="err">⚠️ Falha ao indexar: '+ JSON.stringify(j2) +'</p>';
-      }
-    }catch(e){
-      status.innerHTML += '<p class="err">⚠️ Erro na indexação: '+ e.message +'</p>';
-    }
-  }
-}
-</script>
+  </script>
+</body>
+</html>
