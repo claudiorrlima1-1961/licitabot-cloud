@@ -1,552 +1,117 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Licitabot - Assessoria de Licitações</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            color: #333;
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .app-container {
-            max-width: 100%;
-            margin: 0 auto;
-        }
-        
-        @media (min-width: 1200px) {
-            .app-container {
-                max-width: 1140px;
-            }
-        }
-        
-        .tabs {
-            display: flex;
-            background: white;
-            border-radius: 12px 12px 0 0;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 15px 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            color: #555;
-            border-bottom: 3px solid transparent;
-        }
-        
-        .tab.active {
-            color: #1e3c72;
-            border-bottom: 3px solid #1e3c72;
-            background-color: #f8f9fa;
-        }
-        
-        .content {
-            background: white;
-            border-radius: 0 0 12px 12px;
-            padding: 25px 20px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
-        }
-        
-        @media (min-width: 768px) {
-            .content {
-                padding: 30px;
-            }
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        header {
-            text-align: center;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eaeaea;
-        }
-        
-        .logo {
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: #1e3c72;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .logo i {
-            color: #2a5298;
-        }
-        
-        .tagline {
-            font-size: 1.1rem;
-            color: #2a5298;
-            font-weight: 600;
-            margin-bottom: 5px;
-        }
-        
-        .description {
-            background-color: #f0f5ff;
-            padding: 18px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            font-size: 0.95rem;
-            line-height: 1.7;
-            border-left: 4px solid #2a5298;
-        }
-        
-        .access-panel {
-            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
-            padding: 25px 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border: 1px solid #d0ddf5;
-        }
-        
-        .access-title {
-            text-align: center;
-            font-size: 1.2rem;
-            margin-bottom: 20px;
-            color: #1e3c72;
-            font-weight: 600;
-        }
-        
-        .password-input {
-            width: 100%;
-            padding: 16px;
-            border: 1px solid #c5d2f0;
-            border-radius: 8px;
-            margin-bottom: 18px;
-            font-size: 1rem;
-            background-color: white;
-            transition: all 0.3s;
-        }
-        
-        .password-input:focus {
-            outline: none;
-            border-color: #2a5298;
-            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.2);
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 4px 10px rgba(42, 82, 152, 0.3);
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 14px rgba(42, 82, 152, 0.4);
-        }
-        
-        .features {
-            margin-bottom: 25px;
-        }
-        
-        .section-title {
-            font-size: 1.4rem;
-            margin-bottom: 18px;
-            color: #1e3c72;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .feature-list {
-            list-style-type: none;
-        }
-        
-        .feature-item {
-            background-color: white;
-            padding: 18px;
-            margin-bottom: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border-left: 4px solid #2a5298;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        
-        .feature-icon {
-            background: #e6eeff;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #2a5298;
-            flex-shrink: 0;
-        }
-        
-        .chat-section {
-            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
-            padding: 25px 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border: 1px solid #d0ddf5;
-        }
-        
-        .chat-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: #1e3c72;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .chat-input {
-            width: 100%;
-            padding: 16px;
-            border: 1px solid #c5d2f0;
-            border-radius: 8px;
-            margin-bottom: 18px;
-            font-size: 1rem;
-            resize: vertical;
-            min-height: 120px;
-            background-color: white;
-        }
-        
-        .disclaimer {
-            background-color: #fff8e1;
-            padding: 18px;
-            border-radius: 8px;
-            border-left: 4px solid #ffc107;
-            font-size: 0.85rem;
-            color: #856404;
-            margin-top: 20px;
-        }
-        
-        .upload-section {
-            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
-            padding: 25px 20px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border: 1px solid #d0ddf5;
-        }
-        
-        .upload-title {
-            font-size: 1.3rem;
-            margin-bottom: 15px;
-            color: #1e3c72;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .file-input-container {
-            position: relative;
-            margin-bottom: 20px;
-        }
-        
-        .file-input {
-            width: 100%;
-            padding: 16px;
-            border: 1px dashed #c5d2f0;
-            border-radius: 8px;
-            background-color: rgba(255, 255, 255, 0.7);
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .file-input:hover {
-            background-color: rgba(255, 255, 255, 0.9);
-            border-color: #2a5298;
-        }
-        
-        .tip {
-            background-color: #e6eeff;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            color: #2a5298;
-            margin-top: 20px;
-            border-left: 4px solid #2a5298;
-        }
-        
-        .footer {
-            text-align: center;
-            color: white;
-            margin-top: 30px;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        /* Desktop Styles */
-        @media (min-width: 768px) {
-            .desktop-layout {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 30px;
-                align-items: start;
-            }
-            
-            .desktop-features {
-                grid-column: 1 / -1;
-            }
-            
-            .feature-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 15px;
-            }
-            
-            .feature-item {
-                margin-bottom: 0;
-                height: 100%;
-            }
-            
-            .btn {
-                width: auto;
-                min-width: 200px;
-            }
-            
-            .center-buttons {
-                display: flex;
-                justify-content: center;
-                gap: 15px;
-            }
-        }
-        
-        @media (min-width: 1024px) {
-            .desktop-layout {
-                grid-template-columns: 1fr 1fr;
-                gap: 40px;
-            }
-            
-            .feature-grid {
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
-            }
-        }
-    </style>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>LICITABOT — Licitações & Contratos</title>
+  <style>
+    :root{
+      --bg:#0b2f3f; --panel:#0f3e54; --txt:#f1f5f9; --muted:#cbd5e1;
+      --box:#e5e7eb; --ink:#0f172a; --cta:#0b3d5c; --ok:#166534; --err:#991b1b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#0b2f3f,#0e3447 60%,#e9eef4 60%,#e9eef4);
+         font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
+    .wrap{max-width:880px;margin:28px auto;padding:16px}
+    .hero{background:var(--panel);color:var(--txt);border-radius:22px;padding:28px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+    .hero h1{margin:8px 0 14px;font-size:28px}
+    .hero p{margin:0 0 18px;color:var(--muted)}
+    .row{display:flex;gap:12px}
+    .inpt{flex:1;padding:12px 14px;border:none;border-radius:12px;background:#294a5b;color:#fff}
+    .btn{background:#1e5169;color:#fff;border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .card{margin-top:18px;background:#f3f4f6;border-radius:18px;padding:18px;box-shadow:0 10px 26px rgba(0,0,0,.08)}
+    .h2{font-size:22px;margin:0 0 10px}
+    .pill{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
+    .pill span{background:#e2e8f0;padding:6px 10px;border-radius:999px;font-size:14px}
+    .qa{margin-top:12px}
+    textarea{width:100%;min-height:120px;border:1px solid #cbd5e1;border-radius:12px;padding:12px}
+    .foot{color:#475569;font-size:12px;margin-top:8px}
+    .msg{margin-top:8px;font-size:14px}
+    .ok{color:var(--ok)} .err{color:var(--err)}
+  </style>
 </head>
 <body>
-    <div class="app-container">
-        <div class="tabs">
-            <div class="tab active" data-tab="access">Acesso</div>
-            <div class="tab" data-tab="upload">Upload</div>
-        </div>
-        
-        <div class="content">
-            <!-- Página de Acesso -->
-            <div class="tab-content active" id="access-tab">
-                <header>
-                    <div class="logo">
-                        <i class="fas fa-robot"></i>
-                        LICITABOT
-                    </div>
-                    <div class="tagline">Assessoria de Licitações e Contratos</div>
-                </header>
-                
-                <section class="description">
-                    Não é apenas um chatbot, mas uma excelente ferramenta de pesquisa em uma base de dados resultante de anos de experiência prática em licitações aplicada a uma análise especializada.
-                </section>
-                
-                <div class="desktop-layout">
-                    <div>
-                        <section class="access-panel">
-                            <div class="access-title">
-                                <i class="fas fa-lock"></i>
-                                Acesso restrito à assinantes
-                            </div>
-                            <div class="description" style="margin-bottom: 20px; font-size: 0.9rem;">
-                                Digite a senha de acesso fornecida após o pagamento.
-                            </div>
-                            <input type="password" class="password-input" placeholder="Senha de acesso">
-                            <div class="center-buttons">
-                                <button class="btn">
-                                    <i class="fas fa-sign-in-alt"></i>
-                                    Entrar
-                                </button>
-                            </div>
-                        </section>
-                        
-                        <section class="chat-section">
-                            <div class="chat-title">
-                                <i class="fas fa-question-circle"></i>
-                                Faça perguntas específicas
-                            </div>
-                            <div class="description" style="margin-bottom: 15px;">
-                                Experimente a diferença de uma IA treinada exclusivamente com documentos da área, não com conteúdo genérico.
-                            </div>
-                            <textarea class="chat-input" placeholder="Digite sua pergunta sobre licitações e contratos..."></textarea>
-                            <div class="center-buttons">
-                                <button class="btn">
-                                    <i class="fas fa-paper-plane"></i>
-                                    Perguntar
-                                </button>
-                            </div>
-                        </section>
-                    </div>
-                    
-                    <div class="desktop-features">
-                        <section class="features">
-                            <h2 class="section-title">
-                                <i class="fas fa-star"></i>
-                                Quais as diferenças
-                            </h2>
-                            <div class="feature-grid">
-                                <div class="feature-item">
-                                    <div class="feature-icon">
-                                        <i class="fas fa-database"></i>
-                                    </div>
-                                    <div class="feature-text">
-                                        <div class="feature-title">Base especializada</div>
-                                        <div class="feature-desc">Usamos dados não genéricos da internet</div>
-                                    </div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">
-                                        <i class="fas fa-chart-line"></i>
-                                    </div>
-                                    <div class="feature-text">
-                                        <div class="feature-title">Conhecimento prático</div>
-                                        <div class="feature-desc">Anos de experiência aplicada em licitações concretas</div>
-                                    </div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">
-                                        <i class="fas fa-comments"></i>
-                                    </div>
-                                    <div class="feature-text">
-                                        <div class="feature-title">Respostas contextuais</div>
-                                        <div class="feature-desc">Entende as nuances das decisões de licitações</div>
-                                    </div>
-                                </div>
-                                <div class="feature-item">
-                                    <div class="feature-icon">
-                                        <i class="fas fa-book"></i>
-                                    </div>
-                                    <div class="feature-text">
-                                        <div class="feature-title">Fontes citadas</div>
-                                        <div class="feature-desc">Você sabe de onde vem a informação</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-                </div>
-                
-                <div class="disclaimer">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Isto não substitui consultoria jurídica formal. O assistente usa base especializada, resultado de anos de experiência prática na área, para respostas mais precisas que as genéricas.
-                </div>
-            </div>
-            
-            <!-- Página de Upload -->
-            <div class="tab-content" id="upload-tab">
-                <header>
-                    <div class="logo">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        UPLOAD DE PDFs
-                    </div>
-                    <div class="tagline">Área Administrativa</div>
-                </header>
-                
-                <section class="upload-section">
-                    <div class="upload-title">
-                        <i class="fas fa-file-pdf"></i>
-                        Envio de PDFs (Admin)
-                    </div>
-                    
-                    <div class="description" style="margin-bottom: 20px;">
-                        Digite a senha do administrador e selecione um ou mais PDFs.
-                    </div>
-                    
-                    <input type="password" class="password-input" placeholder="Senha do admin (ADMIN_UPLOAD_TOI)">
-                    
-                    <div class="file-input-container">
-                        <div class="file-input">
-                            <i class="fas fa-folder-open"></i>
-                            Escolher arquivos
-                        </div>
-                    </div>
-                    
-                    <div class="center-buttons">
-                        <button class="btn">
-                            <i class="fas fa-upload"></i>
-                            Enviar PDFs
-                        </button>
-                    </div>
-                    
-                    <div class="tip">
-                        <strong>Dica:</strong> após enviar os arquivos, a base é reindexada automaticamente. Você pode clicar em "Ver PDFs" para confirmar se os nomes apareceram na pasta do servidor.
-                    </div>
-                </section>
-            </div>
-        </div>
-        
-        <div class="footer">
-            Licitabot &copy; 2025 - Todos os direitos reservados
-        </div>
+  <div class="wrap">
+    <div class="hero">
+      <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
+      <p>Não é apenas um chatbot. É uma excelente ferramenta de pesquisa em uma base especializada
+        resultante de anos de experiência prática em licitações e contratos — aplicada a uma IA especializada.</p>
+
+      <div class="row">
+        <input id="senha" class="inpt" type="password" placeholder="🔒 Senha de acesso"/>
+        <button id="btnLogin" class="btn">Entrar</button>
+      </div>
+      <div id="loginMsg" class="msg"></div>
     </div>
 
-    <script>
-        // Controle das abas - COMPATÍVEL com código anterior
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                // Remove a classe active de todas as abas
-                document.querySelectorAll('.tab').forEach(t => {
-                    t.classList.remove('active');
-                });
-                
-                // Adiciona a classe active à aba clicada
-                tab.classList.add('active');
-                
-                // Esconde todo o conteúdo
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.remove('active');
-                });
-                
-                // Mostra o conteúdo correspondente
-                const tabId = tab.getAttribute('data-tab');
-                document.getElementById(`${tabId}-tab`).classList.add('active');
-            });
-        });
-        
-        // Simulação de upload de arquivo - COMPATÍVEL
-        document.querySelector('.file-input').addEventListener('click', function() {
-            // Em uma implementação real, isso abriria o seletor de arquivos
-            alert('Seletor de arquivos seria aberto em uma implementação real');
-        });
-    </script>
+    <div class="card">
+      <h2 class="h2">Quais as diferenças</h2>
+      <div class="pill">
+        <span>✅ Base especializada — não usamos dados genéricos da internet</span>
+        <span>✅ Conhecimento prático — anos de experiência real na área</span>
+        <span>✅ Respostas contextuais — entende nuances de licitações</span>
+        <span>✅ Fontes citadas — você sabe de onde vem a informação</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="h2">Faça perguntas específicas sobre licitações e contratos</h2>
+      <p style="margin:0 0 8px;color:#475569">
+        Experimente a diferença de uma IA treinada exclusivamente com documentos da área.
+      </p>
+      <div class="row" style="gap:8px">
+        <input id="pergunta" class="inpt" type="text" placeholder="Perguntar" disabled/>
+        <button id="btnAsk" class="btn" disabled>Perguntar</button>
+      </div>
+      <div class="qa">
+        <textarea id="resposta" placeholder="Licitabot:" readonly></textarea>
+      </div>
+      <div class="foot">
+        Isto não substitui consulta/parecer jurídico formal. O assistente usa base especializada,
+        fruto de anos de experiência prática na área por Cláudio Lima.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const senha     = document.getElementById('senha');
+    const btnLogin  = document.getElementById('btnLogin');
+    const loginMsg  = document.getElementById('loginMsg');
+    const pergunta  = document.getElementById('pergunta');
+    const btnAsk    = document.getElementById('btnAsk');
+    const resposta  = document.getElementById('resposta');
+
+    btnLogin.onclick = async () => {
+      loginMsg.textContent = '';
+      const r = await fetch('/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({password: senha.value || ''})
+      });
+      if (r.ok) {
+        loginMsg.innerHTML = '<span class="ok">✅ Senha aceita. Perguntas liberadas.</span>';
+        pergunta.disabled = false; btnAsk.disabled = false;
+        pergunta.focus();
+      } else {
+        const j = await r.json().catch(()=>({error:'Erro'}));
+        loginMsg.innerHTML = '<span class="err">❌ ' + (j.error || 'Senha inválida') + '</span>';
+        pergunta.disabled = true; btnAsk.disabled = true;
+      }
+    };
+
+    btnAsk.onclick = async () => {
+      const q = (pergunta.value || '').trim();
+      if (!q) return;
+      resposta.value = 'Consultando...';
+      const r = await fetch('/ask', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({question: q})
+      });
+      const j = await r.json().catch(()=>({answer:'Erro'}));
+      resposta.value = j.answer || 'Sem resposta.';
+    };
+  </script>
 </body>
 </html>
