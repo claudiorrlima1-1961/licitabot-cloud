@@ -3,428 +3,550 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Licitabot</title>
+    <title>Licitabot - Assessoria de Licitações</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
-            font-family: 'Arial', sans-serif;
-            background: linear-gradient(135deg, #0b3d5c 0%, #0a3350 100%);
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
             padding: 20px;
         }
         
-        .login-container {
+        .app-container {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        @media (min-width: 1200px) {
+            .app-container {
+                max-width: 1140px;
+            }
+        }
+        
+        .tabs {
+            display: flex;
             background: white;
-            padding: 50px;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            width: 100%;
-            max-width: 450px;
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab {
+            flex: 1;
             text-align: center;
+            padding: 15px 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #555;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab.active {
+            color: #1e3c72;
+            border-bottom: 3px solid #1e3c72;
+            background-color: #f8f9fa;
+        }
+        
+        .content {
+            background: white;
+            border-radius: 0 0 12px 12px;
+            padding: 25px 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        
+        @media (min-width: 768px) {
+            .content {
+                padding: 30px;
+            }
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eaeaea;
         }
         
         .logo {
-            font-size: 60px;
-            margin-bottom: 20px;
-            color: #0b3d5c;
-        }
-        
-        h1 {
-            color: #0b3d5c;
-            margin-bottom: 10px;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        
-        .subtitle {
-            color: #666;
-            margin-bottom: 40px;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-        
-        .form-group {
-            margin-bottom: 25px;
-            text-align: left;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 10px;
-            color: #333;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        
-        input[type="text"],
-        input[type="password"] {
-            width: 100%;
-            padding: 18px;
-            border: 2px solid #e1e5e9;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s;
-            background: #f8fafc;
-        }
-        
-        input[type="text"]:focus,
-        input[type="password"]:focus {
-            border-color: #0b3d5c;
-            background: white;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(11, 61, 92, 0.1);
-        }
-        
-        .login-btn {
-            width: 100%;
-            padding: 18px;
-            background: linear-gradient(135deg, #0b3d5c 0%, #0a3350 100%);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-        
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(11, 61, 92, 0.3);
-        }
-        
-        .login-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            display: none;
-            font-size: 14px;
-            border: 1px solid #fecaca;
-        }
-        
-        .security-notice {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            font-size: 13px;
-            color: #666;
-            border: 1px solid #e1e5e9;
-        }
-        
-        .user-options {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        
-        .user-btn {
-            flex: 1;
-            padding: 12px;
-            background: #f1f5f9;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            transition: all 0.3s;
-        }
-        
-        .user-btn:hover {
-            background: #0b3d5c;
-            color: white;
-            border-color: #0b3d5c;
-        }
-        
-        .features {
-            display: flex;
-            justify-content: space-around;
-            margin: 30px 0;
-            padding: 25px;
-            background: #f0f7ff;
-            border-radius: 12px;
-        }
-        
-        .feature {
-            text-align: center;
-        }
-        
-        .feature-icon {
-            font-size: 24px;
+            font-size: 2.2rem;
+            font-weight: 800;
+            color: #1e3c72;
             margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         
-        .feature-text {
-            font-size: 12px;
-            color: #0b3d5c;
+        .logo i {
+            color: #2a5298;
+        }
+        
+        .tagline {
+            font-size: 1.1rem;
+            color: #2a5298;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .description {
+            background-color: #f0f5ff;
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            border-left: 4px solid #2a5298;
+        }
+        
+        .access-panel {
+            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
+            padding: 25px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid #d0ddf5;
+        }
+        
+        .access-title {
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: #1e3c72;
             font-weight: 600;
         }
         
-        .password-hint {
-            margin-top: 25px;
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            font-size: 12px;
-            color: #666;
-            text-align: left;
-            border: 1px solid #e1e5e9;
+        .password-input {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid #c5d2f0;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 1rem;
+            background-color: white;
+            transition: all 0.3s;
         }
         
-        .success-message {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 15px;
+        .password-input:focus {
+            outline: none;
+            border-color: #2a5298;
+            box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.2);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #2a5298 0%, #1e3c72 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(42, 82, 152, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(42, 82, 152, 0.4);
+        }
+        
+        .features {
+            margin-bottom: 25px;
+        }
+        
+        .section-title {
+            font-size: 1.4rem;
+            margin-bottom: 18px;
+            color: #1e3c72;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .feature-list {
+            list-style-type: none;
+        }
+        
+        .feature-item {
+            background-color: white;
+            padding: 18px;
+            margin-bottom: 12px;
             border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #2a5298;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .feature-icon {
+            background: #e6eeff;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2a5298;
+            flex-shrink: 0;
+        }
+        
+        .chat-section {
+            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
+            padding: 25px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid #d0ddf5;
+        }
+        
+        .chat-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #1e3c72;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            width: 100%;
+            padding: 16px;
+            border: 1px solid #c5d2f0;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            font-size: 1rem;
+            resize: vertical;
+            min-height: 120px;
+            background-color: white;
+        }
+        
+        .disclaimer {
+            background-color: #fff8e1;
+            padding: 18px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            font-size: 0.85rem;
+            color: #856404;
+            margin-top: 20px;
+        }
+        
+        .upload-section {
+            background: linear-gradient(135deg, #f0f5ff 0%, #e6eeff 100%);
+            padding: 25px 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid #d0ddf5;
+        }
+        
+        .upload-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #1e3c72;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .file-input-container {
+            position: relative;
             margin-bottom: 20px;
-            display: none;
-            border: 1px solid #a7f3d0;
+        }
+        
+        .file-input {
+            width: 100%;
+            padding: 16px;
+            border: 1px dashed #c5d2f0;
+            border-radius: 8px;
+            background-color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .file-input:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-color: #2a5298;
+        }
+        
+        .tip {
+            background-color: #e6eeff;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #2a5298;
+            margin-top: 20px;
+            border-left: 4px solid #2a5298;
+        }
+        
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        /* Desktop Styles */
+        @media (min-width: 768px) {
+            .desktop-layout {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                align-items: start;
+            }
+            
+            .desktop-features {
+                grid-column: 1 / -1;
+            }
+            
+            .feature-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 15px;
+            }
+            
+            .feature-item {
+                margin-bottom: 0;
+                height: 100%;
+            }
+            
+            .btn {
+                width: auto;
+                min-width: 200px;
+            }
+            
+            .center-buttons {
+                display: flex;
+                justify-content: center;
+                gap: 15px;
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .desktop-layout {
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="logo">💼</div>
-        <h1>Licitabot Premium</h1>
-        <p class="subtitle">Sistema Inteligente de Consulta a Editais e Licitações</p>
+    <div class="app-container">
+        <div class="tabs">
+            <div class="tab active" data-tab="access">Acesso</div>
+            <div class="tab" data-tab="upload">Upload</div>
+        </div>
         
-        <div class="features">
-            <div class="feature">
-                <div class="feature-icon">🔍</div>
-                <div class="feature-text">Pesquisa<br>Inteligente</div>
+        <div class="content">
+            <!-- Página de Acesso -->
+            <div class="tab-content active" id="access-tab">
+                <header>
+                    <div class="logo">
+                        <i class="fas fa-robot"></i>
+                        LICITABOT
+                    </div>
+                    <div class="tagline">Assessoria de Licitações e Contratos</div>
+                </header>
+                
+                <section class="description">
+                    Não é apenas um chatbot, mas uma excelente ferramenta de pesquisa em uma base de dados resultante de anos de experiência prática em licitações aplicada a uma análise especializada.
+                </section>
+                
+                <div class="desktop-layout">
+                    <div>
+                        <section class="access-panel">
+                            <div class="access-title">
+                                <i class="fas fa-lock"></i>
+                                Acesso restrito à assinantes
+                            </div>
+                            <div class="description" style="margin-bottom: 20px; font-size: 0.9rem;">
+                                Digite a senha de acesso fornecida após o pagamento.
+                            </div>
+                            <input type="password" class="password-input" placeholder="Senha de acesso">
+                            <div class="center-buttons">
+                                <button class="btn">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                    Entrar
+                                </button>
+                            </div>
+                        </section>
+                        
+                        <section class="chat-section">
+                            <div class="chat-title">
+                                <i class="fas fa-question-circle"></i>
+                                Faça perguntas específicas
+                            </div>
+                            <div class="description" style="margin-bottom: 15px;">
+                                Experimente a diferença de uma IA treinada exclusivamente com documentos da área, não com conteúdo genérico.
+                            </div>
+                            <textarea class="chat-input" placeholder="Digite sua pergunta sobre licitações e contratos..."></textarea>
+                            <div class="center-buttons">
+                                <button class="btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                    Perguntar
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+                    
+                    <div class="desktop-features">
+                        <section class="features">
+                            <h2 class="section-title">
+                                <i class="fas fa-star"></i>
+                                Quais as diferenças
+                            </h2>
+                            <div class="feature-grid">
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-database"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <div class="feature-title">Base especializada</div>
+                                        <div class="feature-desc">Usamos dados não genéricos da internet</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-chart-line"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <div class="feature-title">Conhecimento prático</div>
+                                        <div class="feature-desc">Anos de experiência aplicada em licitações concretas</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-comments"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <div class="feature-title">Respostas contextuais</div>
+                                        <div class="feature-desc">Entende as nuances das decisões de licitações</div>
+                                    </div>
+                                </div>
+                                <div class="feature-item">
+                                    <div class="feature-icon">
+                                        <i class="fas fa-book"></i>
+                                    </div>
+                                    <div class="feature-text">
+                                        <div class="feature-title">Fontes citadas</div>
+                                        <div class="feature-desc">Você sabe de onde vem a informação</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+                
+                <div class="disclaimer">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Isto não substitui consultoria jurídica formal. O assistente usa base especializada, resultado de anos de experiência prática na área, para respostas mais precisas que as genéricas.
+                </div>
             </div>
-            <div class="feature">
-                <div class="feature-icon">📊</div>
-                <div class="feature-text">Análise de<br>Editais</div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">⚡</div>
-                <div class="feature-text">Respostas<br>Rápidas</div>
+            
+            <!-- Página de Upload -->
+            <div class="tab-content" id="upload-tab">
+                <header>
+                    <div class="logo">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        UPLOAD DE PDFs
+                    </div>
+                    <div class="tagline">Área Administrativa</div>
+                </header>
+                
+                <section class="upload-section">
+                    <div class="upload-title">
+                        <i class="fas fa-file-pdf"></i>
+                        Envio de PDFs (Admin)
+                    </div>
+                    
+                    <div class="description" style="margin-bottom: 20px;">
+                        Digite a senha do administrador e selecione um ou mais PDFs.
+                    </div>
+                    
+                    <input type="password" class="password-input" placeholder="Senha do admin (ADMIN_UPLOAD_TOI)">
+                    
+                    <div class="file-input-container">
+                        <div class="file-input">
+                            <i class="fas fa-folder-open"></i>
+                            Escolher arquivos
+                        </div>
+                    </div>
+                    
+                    <div class="center-buttons">
+                        <button class="btn">
+                            <i class="fas fa-upload"></i>
+                            Enviar PDFs
+                        </button>
+                    </div>
+                    
+                    <div class="tip">
+                        <strong>Dica:</strong> após enviar os arquivos, a base é reindexada automaticamente. Você pode clicar em "Ver PDFs" para confirmar se os nomes apareceram na pasta do servidor.
+                    </div>
+                </section>
             </div>
         </div>
         
-        <div id="errorMessage" class="error-message"></div>
-        <div id="successMessage" class="success-message"></div>
-        
-        <form id="loginForm">
-            <div class="form-group">
-                <label for="username">USUÁRIO:</label>
-                <input type="text" id="username" name="username" required 
-                       placeholder="Digite seu usuário de acesso" autocomplete="username">
-            </div>
-            
-            <div class="form-group">
-                <label for="password">SENHA:</label>
-                <input type="password" id="password" name="password" required 
-                       placeholder="Digite sua senha premium" autocomplete="current-password">
-            </div>
-            
-            <button type="submit" class="login-btn" id="loginButton">
-                🔓 ACESSAR SISTEMA PREMIUM
-            </button>
-        </form>
-
-        <div class="user-options">
-            <button class="user-btn" onclick="fillCredentials('admin')">
-                👑 Administrador
-            </button>
-            <button class="user-btn" onclick="fillCredentials('cliente')">
-                👤 Cliente
-            </button>
-        </div>
-        
-        <div class="password-hint">
-            <strong>🔐 Credenciais de Acesso:</strong><br><br>
-            
-            <strong>Administrador:</strong><br>
-            • Usuário: <code>admin</code><br>
-            • Senha: <code>admin123</code><br><br>
-            
-            <strong>Cliente Premium:</strong><br>
-            • Usuário: <code>cliente</code><br>
-            • Senha: <code>cliente123</code><br><br>
-            
-            <em>Selecione um dos botões acima para preencher automaticamente.</em>
-        </div>
-        
-        <div class="security-notice">
-            🔒 <strong>Sistema Seguro</strong><br>
-            Acesso restrito a usuários autorizados. 
-            Todas as atividades são monitoradas e registradas.
+        <div class="footer">
+            Licitabot &copy; 2025 - Todos os direitos reservados
         </div>
     </div>
 
     <script>
-        // Credenciais pré-definidas
-        const credentials = {
-            'admin': {
-                username: 'admin',
-                password: 'admin123'
-            },
-            'cliente': {
-                username: 'cliente', 
-                password: 'cliente123'
-            }
-        };
-
-        // Preencher credenciais automaticamente
-        function fillCredentials(type) {
-            const cred = credentials[type];
-            if (cred) {
-                document.getElementById('username').value = cred.username;
-                document.getElementById('password').value = cred.password;
-                showSuccess(`Credenciais de ${type} preenchidas!`);
-            }
-        }
-
-        // Mostrar mensagem de sucesso
-        function showSuccess(message) {
-            const successDiv = document.getElementById('successMessage');
-            successDiv.textContent = '✅ ' + message;
-            successDiv.style.display = 'block';
-            
-            // Esconder após 3 segundos
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 3000);
-        }
-
-        // Mostrar mensagem de erro
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = '❌ ' + message;
-            errorDiv.style.display = 'block';
-            
-            // Esconder mensagem de sucesso se estiver visível
-            document.getElementById('successMessage').style.display = 'none';
-        }
-
-        // Esconder mensagens
-        function hideMessages() {
-            document.getElementById('errorMessage').style.display = 'none';
-            document.getElementById('successMessage').style.display = 'none';
-        }
-
-        // Processar login
-        async function handleLogin(username, password) {
-            const loginButton = document.getElementById('loginButton');
-            
-            try {
-                // Mostrar loading
-                loginButton.innerHTML = '⏳ AUTENTICANDO...';
-                loginButton.disabled = true;
-                hideMessages();
-
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        username: username,
-                        password: password
-                    })
+        // Controle das abas - COMPATÍVEL com código anterior
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove a classe active de todas as abas
+                document.querySelectorAll('.tab').forEach(t => {
+                    t.classList.remove('active');
                 });
                 
-                if (response.ok) {
-                    loginButton.innerHTML = '✅ ACESSO CONCEDIDO!';
-                    showSuccess('Login realizado com sucesso! Redirecionando...');
-                    
-                    // Redirecionar após 1.5 segundos
-                    setTimeout(() => {
-                        window.location.href = '/dashboard';
-                    }, 1500);
-                    
-                } else {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Erro desconhecido');
-                }
+                // Adiciona a classe active à aba clicada
+                tab.classList.add('active');
                 
-            } catch (error) {
-                console.error('Erro no login:', error);
+                // Esconde todo o conteúdo
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
                 
-                // Mostrar erro específico
-                if (error.message.includes('Failed to fetch')) {
-                    showError('Erro de conexão. Verifique sua internet e tente novamente.');
-                } else if (error.message.includes('incorretos')) {
-                    showError('Usuário ou senha incorretos. Verifique suas credenciais.');
-                } else {
-                    showError('Erro no servidor. Tente novamente em alguns instantes.');
-                }
-                
-                // Restaurar botão
-                loginButton.innerHTML = '🔓 ACESSAR SISTEMA PREMIUM';
-                loginButton.disabled = false;
-            }
-        }
-
-        // Event listener para o formulário
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            
-            if (!username || !password) {
-                showError('Por favor, preencha todos os campos.');
-                return;
-            }
-            
-            await handleLogin(username, password);
-        });
-
-        // Limpar mensagens ao digitar
-        document.getElementById('username').addEventListener('input', hideMessages);
-        document.getElementById('password').addEventListener('input', hideMessages);
-
-        // Tecla Enter para enviar
-        document.getElementById('password').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-            }
-        });
-
-        // Focar no campo de usuário ao carregar a página
-        window.addEventListener('load', function() {
-            document.getElementById('username').focus();
-        });
-
-        // Efeito visual nos inputs
-        const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.style.transform = 'scale(1.02)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.style.transform = 'scale(1)';
+                // Mostra o conteúdo correspondente
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
             });
         });
-
-        // Demo automático (opcional)
-        setTimeout(() => {
-            if (document.getElementById('username').value === '' && 
-                document.getElementById('password').value === '') {
-                showSuccess('Use os botões acima para preencher as credenciais automaticamente!');
-            }
-        }, 2000);
+        
+        // Simulação de upload de arquivo - COMPATÍVEL
+        document.querySelector('.file-input').addEventListener('click', function() {
+            // Em uma implementação real, isso abriria o seletor de arquivos
+            alert('Seletor de arquivos seria aberto em uma implementação real');
+        });
     </script>
 </body>
 </html>
