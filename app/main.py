@@ -120,100 +120,98 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
         }
     return {"answer": ans}
 
-# ------------------------ PÁGINA DO ADMINISTRADOR ----------------------------
+# # ------------------------ PÁGINA DO ADMINISTRADOR ----------------------------
 router = APIRouter()
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.get("/admin", response_class=HTMLResponse)
-async def admin_page(request: Request):
-    """Interface do administrador: upload, listagem e exclusão (templates/admin.html)."""
+# Servir PDFs enviados (para o botão "Ver PDFs" funcionar)
+from fastapi.staticfiles import StaticFiles
+app.mount("/pdfs", StaticFiles(directory=UPLOAD_DIR), name="pdfs")
+
+def _ensure_upload_dir():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# === PÁGINA DO ADMINISTRADOR ===
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request):
+    """Painel do administrador (upload, listagem e exclusão)."""
+    templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+    templates = Jinja2Templates(directory=templates_dir)
     return templates.TemplateResponse("admin.html", {"request": request})
 
+# Atalho opcional (para quem acessa /upload)
+@app.get("/upload", response_class=HTMLResponse)
+def upload_alias(request: Request):
+    templates_dir = os.path.join(os.path.dirname(__file__), "templates")
+    templates = Jinja2Templates(directory=templates_dir)
+    return templates.TemplateResponse("admin.html", {"request": request})
+
+# === ENDPOINT: Upload de PDFs ===
 @router.post("/upload_pdf")
 async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None),
 ):
-    # Autorização
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    _ensure_upload_dir()
     destino = os.path.join(UPLOAD_DIR, file.filename)
-
-    # Grava em chunks estáveis
     try:
-        with open(destino, "wb") as buffer:
+        with open(destino, "wb") as f:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
-                buffer.write(chunk)
+                f.write(chunk)
     except Exception as e:
-        log.exception("Falha ao salvar PDF")
-        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar PDF: {e}")
 
-    # Indexa no RAG
+    # Indexa o PDF no RAG
     try:
         ingest_paths([destino])
     except Exception as e:
         log.exception("Falha ao indexar PDF")
-        return {"ok": True, "filename": file.filename, "indexed": False, "index_error": str(e)}
+        return {"ok": True, "filename": file.filename, "indexed": False, "error": str(e)}
 
     return {"ok": True, "filename": file.filename, "indexed": True}
 
+# === LISTAR PDFs ===
 @router.get("/list_pdfs")
 async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    _ensure_upload_dir()
-    itens = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
-    return {"files": itens}
+    files = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
+    return {"files": files}
 
+# === EXCLUIR PDFs ===
 @router.delete("/delete_pdf")
 async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    _ensure_upload_dir()
     alvo = os.path.join(UPLOAD_DIR, name)
     if not os.path.exists(alvo):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
-    try:
-        os.remove(alvo)
-        # Opcional: reindexar tudo após remoção
-        try:
-            paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
-            if paths:
-                ingest_paths(paths)
-        except Exception:
-            pass
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Falha ao excluir: {e}")
+    os.remove(alvo)
     return {"ok": True, "deleted": name}
 
-# Servir um PDF específico (abre em nova aba pelo admin.html)
-@app.get("/pdfs/{name}")
-async def serve_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
-    """
-    Permite ABRIR um PDF enviado (usado pela aba 'Ver PDFs').
-    Para simplificar a experiência mobile, não exigimos o header aqui;
-    se desejar travar, troque o 'pass' abaixo por um raise 401.
-    """
-    if x_admin_token is not None and x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
-        raise HTTPException(status_code=401, detail="Token inválido.")
+# === Diagnóstico simples ===
+@app.get("/check_token", response_class=PlainTextResponse)
+async def check_token(x_admin_token: Optional[str] = Header(None)):
+    if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
+        return PlainTextResponse("✅ Token válido", status_code=200)
+    return PlainTextResponse("❌ Token inválido", status_code=401)
 
-    base = pathlib.Path(UPLOAD_DIR).resolve()
-    alvo = (base / name).resolve()
-    if base not in alvo.parents and base != alvo.parent:
-        raise HTTPException(status_code=400, detail="Caminho inválido.")
-    if not alvo.exists() or not alvo.name.lower().endswith(".pdf"):
-        raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
-    return FileResponse(str(alvo), media_type="application/pdf", filename=alvo.name)
-
+# Inclui o router do upload
 app.include_router(router)
 
+# ----------------------------- UVICORN (Render) ------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
 # --------------------- DIAGNÓSTICO SIMPLES DO TOKEN --------------------------
 @app.get("/check_token", response_class=PlainTextResponse)
 async def check_token(x_admin_token: Optional[str] = Header(None)):
@@ -221,8 +219,3 @@ async def check_token(x_admin_token: Optional[str] = Header(None)):
         return PlainTextResponse("✅ Token válido", status_code=200)
     return PlainTextResponse("❌ Token inválido", status_code=401)
 
-# ----------------------------- UVICORN (Render) ------------------------------
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
