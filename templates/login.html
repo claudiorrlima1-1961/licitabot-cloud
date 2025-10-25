@@ -1,103 +1,430 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Licitabot – Login</title>
-  <style>
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f3f4f6;
-      color: #1f2937;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      margin: 0;
-    }
-    .card {
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 360px;
-      padding: 24px;
-      text-align: center;
-    }
-    h1 {
-      margin-bottom: 12px;
-      color: #0b2942;
-      font-size: 24px;
-    }
-    p.sub {
-      margin-top: 0;
-      color: #475569;
-      font-size: 14px;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 16px 0;
-      border: 1px solid #cbd5e1;
-      border-radius: 10px;
-      box-sizing: border-box;
-    }
-    button {
-      width: 100%;
-      background: #0b3d5c;
-      color: #fff;
-      border: none;
-      padding: 12px;
-      border-radius: 10px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover {
-      filter: brightness(1.1);
-    }
-    #msg {
-      margin-top: 12px;
-      font-size: 14px;
-    }
-    .ok { color: #166534; }
-    .err { color: #991b1b; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Licitabot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0b3d5c 0%, #0a3350 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            background: white;
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #0b3d5c;
+        }
+        
+        h1 {
+            color: #0b3d5c;
+            margin-bottom: 10px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 10px;
+            color: #333;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 18px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background: #f8fafc;
+        }
+        
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            border-color: #0b3d5c;
+            background: white;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(11, 61, 92, 0.1);
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #0b3d5c 0%, #0a3350 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+        
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(11, 61, 92, 0.3);
+        }
+        
+        .login-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            display: none;
+            font-size: 14px;
+            border: 1px solid #fecaca;
+        }
+        
+        .security-notice {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 13px;
+            color: #666;
+            border: 1px solid #e1e5e9;
+        }
+        
+        .user-options {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        
+        .user-btn {
+            flex: 1;
+            padding: 12px;
+            background: #f1f5f9;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .user-btn:hover {
+            background: #0b3d5c;
+            color: white;
+            border-color: #0b3d5c;
+        }
+        
+        .features {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            padding: 25px;
+            background: #f0f7ff;
+            border-radius: 12px;
+        }
+        
+        .feature {
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .feature-text {
+            font-size: 12px;
+            color: #0b3d5c;
+            font-weight: 600;
+        }
+        
+        .password-hint {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-size: 12px;
+            color: #666;
+            text-align: left;
+            border: 1px solid #e1e5e9;
+        }
+        
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            border: 1px solid #a7f3d0;
+        }
+    </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Licitabot</h1>
-    <p class="sub">Digite a senha para acessar o chat.</p>
-    <input type="password" id="password" placeholder="Senha de acesso" />
-    <button onclick="entrar()">Entrar</button>
-    <div id="msg"></div>
-  </div>
+    <div class="login-container">
+        <div class="logo">💼</div>
+        <h1>Licitabot Premium</h1>
+        <p class="subtitle">Sistema Inteligente de Consulta a Editais e Licitações</p>
+        
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔍</div>
+                <div class="feature-text">Pesquisa<br>Inteligente</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <div class="feature-text">Análise de<br>Editais</div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">⚡</div>
+                <div class="feature-text">Respostas<br>Rápidas</div>
+            </div>
+        </div>
+        
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">USUÁRIO:</label>
+                <input type="text" id="username" name="username" required 
+                       placeholder="Digite seu usuário de acesso" autocomplete="username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">SENHA:</label>
+                <input type="password" id="password" name="password" required 
+                       placeholder="Digite sua senha premium" autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="login-btn" id="loginButton">
+                🔓 ACESSAR SISTEMA PREMIUM
+            </button>
+        </form>
 
-  <script>
-    async function entrar() {
-      const senha = document.getElementById('password').value.trim();
-      const msg = document.getElementById('msg');
-      msg.innerHTML = '';
-      if (!senha) {
-        msg.innerHTML = '<p class="err">Informe a senha.</p>';
-        return;
-      }
-      try {
-        const r = await fetch('/login', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ password: senha })
-        });
-        const j = await r.json();
-        if (j.ok) {
-          msg.innerHTML = '<p class="ok">✅ Acesso liberado!</p>';
-          setTimeout(() => window.location.href = '/chat', 800);
-        } else {
-          msg.innerHTML = '<p class="err">❌ ' + (j.error || 'Senha incorreta.') + '</p>';
+        <div class="user-options">
+            <button class="user-btn" onclick="fillCredentials('admin')">
+                👑 Administrador
+            </button>
+            <button class="user-btn" onclick="fillCredentials('cliente')">
+                👤 Cliente
+            </button>
+        </div>
+        
+        <div class="password-hint">
+            <strong>🔐 Credenciais de Acesso:</strong><br><br>
+            
+            <strong>Administrador:</strong><br>
+            • Usuário: <code>admin</code><br>
+            • Senha: <code>admin123</code><br><br>
+            
+            <strong>Cliente Premium:</strong><br>
+            • Usuário: <code>cliente</code><br>
+            • Senha: <code>cliente123</code><br><br>
+            
+            <em>Selecione um dos botões acima para preencher automaticamente.</em>
+        </div>
+        
+        <div class="security-notice">
+            🔒 <strong>Sistema Seguro</strong><br>
+            Acesso restrito a usuários autorizados. 
+            Todas as atividades são monitoradas e registradas.
+        </div>
+    </div>
+
+    <script>
+        // Credenciais pré-definidas
+        const credentials = {
+            'admin': {
+                username: 'admin',
+                password: 'admin123'
+            },
+            'cliente': {
+                username: 'cliente', 
+                password: 'cliente123'
+            }
+        };
+
+        // Preencher credenciais automaticamente
+        function fillCredentials(type) {
+            const cred = credentials[type];
+            if (cred) {
+                document.getElementById('username').value = cred.username;
+                document.getElementById('password').value = cred.password;
+                showSuccess(`Credenciais de ${type} preenchidas!`);
+            }
         }
-      } catch(e) {
-        msg.innerHTML = '<p class="err">Erro de conexão: ' + e.message + '</p>';
-      }
-    }
-  </script>
+
+        // Mostrar mensagem de sucesso
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = '✅ ' + message;
+            successDiv.style.display = 'block';
+            
+            // Esconder após 3 segundos
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Mostrar mensagem de erro
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = '❌ ' + message;
+            errorDiv.style.display = 'block';
+            
+            // Esconder mensagem de sucesso se estiver visível
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // Esconder mensagens
+        function hideMessages() {
+            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        // Processar login
+        async function handleLogin(username, password) {
+            const loginButton = document.getElementById('loginButton');
+            
+            try {
+                // Mostrar loading
+                loginButton.innerHTML = '⏳ AUTENTICANDO...';
+                loginButton.disabled = true;
+                hideMessages();
+
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+                
+                if (response.ok) {
+                    loginButton.innerHTML = '✅ ACESSO CONCEDIDO!';
+                    showSuccess('Login realizado com sucesso! Redirecionando...');
+                    
+                    // Redirecionar após 1.5 segundos
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                    
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Erro desconhecido');
+                }
+                
+            } catch (error) {
+                console.error('Erro no login:', error);
+                
+                // Mostrar erro específico
+                if (error.message.includes('Failed to fetch')) {
+                    showError('Erro de conexão. Verifique sua internet e tente novamente.');
+                } else if (error.message.includes('incorretos')) {
+                    showError('Usuário ou senha incorretos. Verifique suas credenciais.');
+                } else {
+                    showError('Erro no servidor. Tente novamente em alguns instantes.');
+                }
+                
+                // Restaurar botão
+                loginButton.innerHTML = '🔓 ACESSAR SISTEMA PREMIUM';
+                loginButton.disabled = false;
+            }
+        }
+
+        // Event listener para o formulário
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                showError('Por favor, preencha todos os campos.');
+                return;
+            }
+            
+            await handleLogin(username, password);
+        });
+
+        // Limpar mensagens ao digitar
+        document.getElementById('username').addEventListener('input', hideMessages);
+        document.getElementById('password').addEventListener('input', hideMessages);
+
+        // Tecla Enter para enviar
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Focar no campo de usuário ao carregar a página
+        window.addEventListener('load', function() {
+            document.getElementById('username').focus();
+        });
+
+        // Efeito visual nos inputs
+        const inputs = document.querySelectorAll('input[type="text"], input[type="password"]');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.style.transform = 'scale(1.02)';
+            });
+            
+            input.addEventListener('blur', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+
+        // Demo automático (opcional)
+        setTimeout(() => {
+            if (document.getElementById('username').value === '' && 
+                document.getElementById('password').value === '') {
+                showSuccess('Use os botões acima para preencher as credenciais automaticamente!');
+            }
+        }, 2000);
+    </script>
 </body>
 </html>
