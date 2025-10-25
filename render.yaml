@@ -19,3 +19,10 @@ services:
       name: chroma-index
       mountPath: /data
       sizeGB: 1
+      services:
+  - type: web
+    name: licitabot-cloud
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn aplicativo.main:app --host 0.0.0.0 --port $PORT
+    plan: free
