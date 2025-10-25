@@ -3,127 +3,146 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Admin — LICITABOT</title>
+  <title>Upload de PDFs — Licitabot</title>
   <style>
-    :root{--ink:#0f172a;--muted:#475569;--bg:#f5f7fa;--card:#fff;--cta:#0b3d5c;--ok:#166534;--err:#991b1b}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
-    .wrap{max-width:920px;margin:28px auto;padding:16px}
-    .tabs{display:flex;gap:16px;margin-bottom:16px}
-    .tab{background:#e2e8f0;padding:14px 18px;border-radius:16px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
-    .tab:hover{filter:brightness(1.03)}
-    .card{background:var(--card);border-radius:18px;box-shadow:0 10px 28px rgba(0,0,0,.12);padding:22px}
-    h1{margin:4px 0 12px}
-    .muted{color:var(--muted)}
-    input[type=password],input[type=file]{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:12px;margin:8px 0 12px}
-    button{background:var(--cta);color:#fff;border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
-    button:hover{filter:brightness(1.06)}
-    .msg{margin-top:10px;font-size:14px}
+    :root{
+      --bg:#f5f7fa; --card:#fff; --txt:#0f172a; --muted:#475569;
+      --btn:#0b3d5c; --btn2:#0e7490; --ok:#166534; --err:#991b1b;
+      --chip:#e2e8f0;
+    }
+    html,body{height:100%;margin:0}
+    body{
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;
+      background:var(--bg); color:var(--txt);
+      display:flex; align-items:flex-start; justify-content:center; padding:24px;
+    }
+    .wrap{width:100%; max-width:980px}
+    .tabs{
+      display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;
+    }
+    .tab{
+      background:#e8eef6; border-radius:16px; padding:16px 22px; display:flex; align-items:center; gap:10px;
+      box-shadow:0 8px 20px rgba(0,0,0,.06);
+    }
+    .tab b{font-size:18px}
+    .card{
+      background:var(--card); border-radius:20px; box-shadow:0 12px 30px rgba(0,0,0,.10);
+      padding:26px;
+    }
+    h1{margin:2px 0 10px; font-size:32px; color:#0b2942}
+    p.sub{margin:0 0 18px; color:var(--muted)}
+    .row{display:flex; gap:12px; margin:10px 0; flex-wrap:wrap}
+    input[type=password]{flex:1; min-width:240px; padding:12px 14px; border-radius:12px; border:1px solid #cbd5e1}
+    input[type=file]{flex:1; min-width:240px; padding:10px; border-radius:12px; border:1px solid #cbd5e1; background:#fff}
+    button{
+      background:var(--btn); color:#fff; border:none; padding:12px 18px; border-radius:12px; font-weight:700; cursor:pointer
+    }
+    button:hover{filter:brightness(1.05)}
+    .muted{color:var(--muted); font-size:14px; margin-top:18px}
+    #status{margin-top:12px; font-size:14px}
     .ok{color:var(--ok)} .err{color:var(--err)}
-    ul{list-style:none;padding:0;margin:10px 0}
-    li{display:flex;justify-content:space-between;align-items:center;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;margin:8px 0;background:#fbfdff}
-    .tiny{font-size:12px;color:var(--muted);margin-top:12px}
+    .list{
+      margin-top:18px; padding-top:14px; border-top:1px dashed #cbd5e1;
+      display:grid; grid-template-columns:1fr auto; gap:10px 12px;
+    }
+    .chip{background:var(--chip); padding:8px 12px; border-radius:999px; font-size:14px}
+    .del{background:#b91c1c}
+    .del:hover{filter:brightness(1.05)}
+    .toolbar{display:flex; gap:8px; align-items:center; margin-top:6px}
+    .toolbar button{background:var(--btn2)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="tabs">
-      <div class="tab" onclick="show('upload')">📦 Upload</div>
-      <div class="tab" onclick="show('lista')">📁 Ver PDFs</div>
-      <div class="tab" onclick="window.location='/'">💬 Chat</div>
+      <div class="tab"><span>📦</span><b>Upload</b></div>
+      <div class="tab"><span>📁</span><b>Ver PDFs</b></div>
+      <a class="tab" href="/" style="text-decoration:none;color:inherit"><span>💬</span><b>Chat</b></a>
     </div>
 
-    <div id="upload" class="card">
+    <div class="card">
       <h1>Envio de PDFs (Admin)</h1>
-      <p class="muted">Digite a senha do administrador e selecione um ou mais PDFs.</p>
-      <input id="adm" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
-      <input id="files" type="file" accept="application/pdf" multiple/>
-      <button onclick="enviar()">Enviar PDFs</button>
-      <div id="status" class="msg"></div>
-      <p class="tiny">Dica: após enviar os arquivos, a base é reindexada automaticamente.</p>
-    </div>
+      <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
 
-    <div id="lista" class="card" style="display:none">
-      <h1>Arquivos no servidor</h1>
-      <p class="muted">Listagem dos PDFs já enviados. Você pode excluir se necessário.</p>
-      <div class="row" style="display:flex;gap:10px">
-        <input id="adm2" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" style="flex:1"/>
-        <button onclick="carregar()">Atualizar lista</button>
+      <div class="row">
+        <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
       </div>
-      <ul id="ul"></ul>
-      <div id="listMsg" class="msg"></div>
+      <div class="row">
+        <input id="arquivo" type="file" accept="application/pdf" multiple/>
+        <button id="btnUpload">Enviar PDFs</button>
+      </div>
+
+      <div class="toolbar">
+        <button id="btnListar">Atualizar lista</button>
+        <span class="muted">Dica: após enviar, a indexação roda em segundo plano.</span>
+      </div>
+
+      <div id="status"></div>
+      <div id="lista" class="list"></div>
     </div>
   </div>
 
-  <script>
-    function show(id){
-      document.getElementById('upload').style.display = (id==='upload'?'block':'none');
-      document.getElementById('lista').style.display  = (id==='lista'?'block':'none');
-      if(id==='lista'){ carregar(); }
-    }
+<script>
+function token(){ return (document.getElementById('senha').value || '').trim(); }
 
-    async function enviar(){
-      const senha = (document.getElementById('adm').value || '').trim();
-      const arquivos = document.getElementById('files').files;
-      const status = document.getElementById('status');
-      status.innerHTML = '';
-      if(!senha){ status.innerHTML='<span class="err">Informe a senha.</span>'; return; }
-      if(!arquivos.length){ status.innerHTML='<span class="err">Selecione ao menos 1 PDF.</span>'; return; }
+function msgOk(t){ document.getElementById('status').innerHTML = '<p class="ok">✅ '+t+'</p>'; }
+function msgErr(t){ document.getElementById('status').innerHTML = '<p class="err">❌ '+t+'</p>'; }
 
-      for(let i=0;i<arquivos.length;i++){
-        const fd = new FormData(); fd.append('file', arquivos[i]);
-        try{
-          const r = await fetch('/upload_pdf', {method:'POST', headers:{'X-Admin-Token':senha}, body:fd});
-          if(r.ok){
-            const j = await r.json();
-            status.innerHTML += '<div class="ok">✅ '+ j.filename +' — ' + (j.indexed?'indexado':'salvo (sem index)') + '</div>';
-          }else{
-            const e = await r.text();
-            status.innerHTML += '<div class="err">❌ '+arquivos[i].name+': '+e+'</div>';
-          }
-        }catch(err){
-          status.innerHTML += '<div class="err">❌ '+arquivos[i].name+': '+err.message+'</div>';
-        }
-      }
-    }
-
-    async function carregar(){
-      const senha = (document.getElementById('adm2').value || '').trim();
-      const ul = document.getElementById('ul');
-      const msg = document.getElementById('listMsg');
-      ul.innerHTML = ''; msg.textContent = '';
-      if(!senha){ msg.innerHTML='<span class="err">Informe a senha.</span>'; return; }
-      try{
-        const r = await fetch('/list_pdfs', {headers:{'X-Admin-Token':senha}});
-        if(!r.ok){ msg.innerHTML='<span class="err">'+await r.text()+'</span>'; return; }
-        const j = await r.json();
-        if(!j.files || !j.files.length){ ul.innerHTML='<li>Nenhum PDF encontrado.</li>'; return; }
-        j.files.forEach(name=>{
-          const li = document.createElement('li');
-          li.innerHTML = '<span>'+name+'</span><button data-n="'+name+'">Excluir</button>';
-          li.querySelector('button').onclick = ()=>excluir(name, senha);
-          ul.appendChild(li);
-        });
-      }catch(e){
-        msg.innerHTML='<span class="err">'+e.message+'</span>';
-      }
-    }
-
-    async function excluir(name, senha){
+async function listar(){
+  const r = await fetch('/list_pdfs', { headers: { 'X-Admin-Token': token() }});
+  const box = document.getElementById('lista');
+  box.innerHTML = '';
+  if(!r.ok){ box.innerHTML = '<span class="err">Não foi possível listar. Verifique a senha.</span>'; return; }
+  const j = await r.json();
+  if(!j.files || !j.files.length){ box.innerHTML = '<span class="muted">Nenhum PDF enviado ainda.</span>'; return; }
+  j.files.forEach(name=>{
+    const chip = document.createElement('div');
+    chip.className='chip';
+    chip.textContent = name;
+    const del = document.createElement('button');
+    del.className='del';
+    del.textContent='Excluir';
+    del.onclick = async ()=>{
       if(!confirm('Excluir "'+name+'"?')) return;
-      const ul = document.getElementById('ul');
-      const msg = document.getElementById('listMsg');
-      try{
-        const r = await fetch('/delete_pdf?name='+encodeURIComponent(name), {
-          method:'DELETE', headers:{'X-Admin-Token':senha}
-        });
-        if(!r.ok){ msg.innerHTML='<span class="err">'+await r.text()+'</span>'; return; }
-        msg.innerHTML='<span class="ok">Arquivo excluído.</span>';
-        carregar();
-      }catch(e){
-        msg.innerHTML='<span class="err">'+e.message+'</span>';
-      }
+      const rr = await fetch('/delete_pdf?name='+encodeURIComponent(name), {
+        method:'DELETE', headers:{'X-Admin-Token': token()}
+      });
+      if(rr.ok){ msgOk('Arquivo excluído: '+name); listar(); }
+      else{ msgErr('Erro ao excluir'); }
+    };
+    box.appendChild(chip);
+    box.appendChild(del);
+  });
+}
+
+async function enviar(){
+  const senha = token();
+  const files = document.getElementById('arquivo').files;
+  if(!senha){ return msgErr('Informe a senha do administrador.'); }
+  if(!files.length){ return msgErr('Selecione ao menos um PDF.'); }
+  msgOk('Enviando…');
+
+  for(let i=0;i<files.length;i++){
+    const fd = new FormData(); fd.append('file', files[i]);
+    const r = await fetch('/upload_pdf', {
+      method:'POST',
+      headers:{ 'X-Admin-Token': senha },
+      body: fd
+    });
+    if(r.ok){
+      const j = await r.json();
+      msgOk('📄 '+j.filename+' => upload OK (indexação agendada).');
+    }else{
+      const e = await r.text();
+      msgErr('Falha ao enviar '+files[i].name+': '+e);
+      return;
     }
-  </script>
+  }
+  listar();
+}
+
+document.getElementById('btnUpload').onclick = enviar;
+document.getElementById('btnListar').onclick = listar;
+</script>
 </body>
 </html>
