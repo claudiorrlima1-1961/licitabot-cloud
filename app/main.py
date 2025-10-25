@@ -4,17 +4,16 @@ import time
 import hmac
 import hashlib
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import (
-    FastAPI, Request, UploadFile, File, Header, Depends, Response,
-    HTTPException, APIRouter, BackgroundTasks
+    FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# ---- RAG do projeto (já existentes) ----------------------------------------
+# ---- Suas dependências RAG (já existentes no projeto) -----------------------
 from .rag_store import ingest_paths, search, context_from_hits
 from .core import answer
 
@@ -101,6 +100,7 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
     except Exception as e:
         ans = f"Erro ao consultar o modelo: {e}"
 
+    # Se mandar cabeçalho de admin, devolve citações (útil p/ auditoria)
     if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
         return {
             "answer": ans,
@@ -119,21 +119,16 @@ def _ensure_upload_dir():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/admin", response_class=HTMLResponse)
-@router.get("/upload", response_class=HTMLResponse)  # atalho /upload
 async def admin_page(request: Request):
     """Interface do administrador: upload, listagem e exclusão."""
     return templates.TemplateResponse("admin.html", {"request": request})
 
 @router.post("/upload_pdf")
 async def upload_pdf(
-    background: BackgroundTasks,
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None),
 ):
-    """
-    Upload de PDF.
-    IMPORTANTE: a indexação roda em BACKGROUND para evitar 502 por timeout.
-    """
+    # Autorização
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
@@ -143,7 +138,7 @@ async def upload_pdf(
     _ensure_upload_dir()
     destino = os.path.join(UPLOAD_DIR, file.filename)
 
-    # Grava em chunks estáveis (I/O rápido; o gargalo do 502 estava na indexação)
+    # Grava em chunks estáveis
     try:
         with open(destino, "wb") as buffer:
             while True:
@@ -155,17 +150,14 @@ async def upload_pdf(
         log.exception("Falha ao salvar PDF")
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    # Agenda a indexação em background (retorna imediatamente ao cliente)
-    def _indexar(path: str):
-        try:
-            ingest_paths([path])
-            log.info(f"[RAG] Indexado: {path}")
-        except Exception as ie:
-            log.exception(f"[RAG] Falha ao indexar {path}: {ie}")
+    # Indexa no RAG
+    try:
+        ingest_paths([destino])
+    except Exception as e:
+        log.exception("Falha ao indexar PDF")
+        return {"ok": True, "filename": file.filename, "indexed": False, "index_error": str(e)}
 
-    background.add_task(_indexar, destino)
-
-    return {"ok": True, "filename": file.filename, "indexed": "scheduled"}
+    return {"ok": True, "filename": file.filename, "indexed": True}
 
 @router.get("/list_pdfs")
 async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
@@ -185,6 +177,13 @@ async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
     try:
         os.remove(alvo)
+        # Opcional: reindexar tudo. Simplesmente tenta indexar o diretório atual.
+        try:
+            paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
+            if paths:
+                ingest_paths(paths)
+        except Exception:
+            pass
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Falha ao excluir: {e}")
     return {"ok": True, "deleted": name}
