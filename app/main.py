@@ -4,41 +4,35 @@ import time
 import hmac
 import hashlib
 import logging
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import (
-    FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
+    FastAPI, Request, UploadFile, File, Header, Depends, Response,
+    HTTPException, APIRouter, BackgroundTasks
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# ---------- BASE DE CAMINHOS (funciona no Render e local) ----------
-from pathlib import Path
-BASE_DIR = Path(__file__).parent                 # .../aplicativo
-TEMPLATES_DIR = BASE_DIR / "templates"
-STATIC_DIR = BASE_DIR / "static"
-UPLOAD_DIR = BASE_DIR / "uploaded_pdfs"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+# ---- RAG do projeto (já existentes) ----------------------------------------
+from .rag_store import ingest_paths, search, context_from_hits
+from .core import answer
 
-# ---------- APP ----------
+# -----------------------------------------------------------------------------
 app = FastAPI(title="Licitabot — Cloud")
 log = logging.getLogger("licitabot")
 log.setLevel(logging.INFO)
 
-# Estáticos / Templates
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# PASTAS ESTÁTICAS E TEMPLATES
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
-# PDFs servidos em /pdfs/NOME.pdf (opcional abrir em nova aba)
-app.mount("/pdfs", StaticFiles(directory=str(UPLOAD_DIR)), name="pdfs")
-
-# ---------- VARIÁVEIS DE AMBIENTE ----------
+# VARIÁVEIS DE AMBIENTE
 ACCESS_PASSWORD     = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
 ADMIN_UPLOAD_TOKEN  = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN") or "admin123").strip()
 SECRET_KEY          = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
 
-# ---------- SESSÃO (libera perguntas após senha) ----------
+# SESSÃO (para liberar perguntas)
 SESSION_COOKIE = "licita_sess"
 SESSION_TTL    = 60 * 60 * 24 * 7  # 7 dias
 
@@ -65,12 +59,7 @@ def _require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Acesso não autorizado.")
     return True
 
-# ---------- SUAS DEPENDÊNCIAS DE RAG ----------
-# Se o seu arquivo chama nucleo.py, RENOMEIE para core.py.
-from .rag_store import ingest_paths, search, context_from_hits
-from .core import answer
-
-# ------------------------ SAÚDE ----------------------------------------------
+# SAÚDE
 @app.get("/health")
 def health():
     try:
@@ -82,6 +71,7 @@ def health():
 # ------------------------ PÁGINA DO USUÁRIO ----------------------------------
 @app.get("/", response_class=HTMLResponse)
 def page_login(request: Request):
+    """Página de login + pergunta (pergunta só libera após senha correta)."""
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.post("/login")
@@ -96,6 +86,7 @@ async def login(payload: dict, response: Response):
 
 @app.post("/ask")
 async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: Optional[str] = Header(None)):
+    """Consulta RAG: busca no índice e responde."""
     q = (payload or {}).get("question", "").strip()
     if not q:
         return {"answer": "Por favor, escreva sua pergunta."}
@@ -122,86 +113,85 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
 
 # ------------------------ PÁGINA DO ADMINISTRADOR ----------------------------
 router = APIRouter()
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
+
+def _ensure_upload_dir():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/admin", response_class=HTMLResponse)
+@router.get("/upload", response_class=HTMLResponse)  # atalho /upload
 async def admin_page(request: Request):
-    # Renderiza admin.html. Se faltar, mostra diagnóstico claro.
-    try:
-        esperado = TEMPLATES_DIR / "admin.html"
-        if not esperado.exists():
-            return HTMLResponse(
-                f"<h3>Template não encontrado:</h3><pre>{esperado}</pre>"
-                f"<p>Crie <code>aplicativo/templates/admin.html</code> no repositório.</p>", status_code=500
-            )
-        return templates.TemplateResponse("admin.html", {"request": request})
-    except Exception as e:
-        return HTMLResponse(
-            f"<h3>Erro ao renderizar admin.html</h3><pre>{type(e).__name__}: {e}</pre>", status_code=500
-        )
-
-# atalho opcional
-@router.get("/upload", response_class=HTMLResponse)
-async def upload_alias(request: Request):
-    return await admin_page(request)
+    """Interface do administrador: upload, listagem e exclusão."""
+    return templates.TemplateResponse("admin.html", {"request": request})
 
 @router.post("/upload_pdf")
 async def upload_pdf(
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None),
 ):
+    """
+    Upload de PDF.
+    IMPORTANTE: a indexação roda em BACKGROUND para evitar 502 por timeout.
+    """
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    destino = UPLOAD_DIR / file.filename
+    _ensure_upload_dir()
+    destino = os.path.join(UPLOAD_DIR, file.filename)
+
+    # Grava em chunks estáveis (I/O rápido; o gargalo do 502 estava na indexação)
     try:
-        with open(destino, "wb") as f:
+        with open(destino, "wb") as buffer:
             while True:
                 chunk = await file.read(1024 * 1024)
                 if not chunk:
                     break
-                f.write(chunk)
+                buffer.write(chunk)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao salvar PDF: {e}")
+        log.exception("Falha ao salvar PDF")
+        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    # Indexa no RAG
-    indexed, index_error = True, None
-    try:
-        ingest_paths([str(destino)])
-    except Exception as e:
-        indexed, index_error = False, str(e)
-        log.exception("Falha ao indexar PDF")
+    # Agenda a indexação em background (retorna imediatamente ao cliente)
+    def _indexar(path: str):
+        try:
+            ingest_paths([path])
+            log.info(f"[RAG] Indexado: {path}")
+        except Exception as ie:
+            log.exception(f"[RAG] Falha ao indexar {path}: {ie}")
 
-    return {"ok": True, "filename": file.filename, "indexed": indexed, "index_error": index_error}
+    background.add_task(_indexar, destino)
+
+    return {"ok": True, "filename": file.filename, "indexed": "scheduled"}
 
 @router.get("/list_pdfs")
 async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    files = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
-    return {"files": files}
+    _ensure_upload_dir()
+    itens = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
+    return {"files": itens}
 
 @router.delete("/delete_pdf")
 async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    alvo = UPLOAD_DIR / name
-    if not alvo.exists():
+    _ensure_upload_dir()
+    alvo = os.path.join(UPLOAD_DIR, name)
+    if not os.path.exists(alvo):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
-    os.remove(alvo)
-    # (Opcional) reindexar o restante
     try:
-        restantes = [str(UPLOAD_DIR / f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
-        if restantes:
-            ingest_paths(restantes)
-    except Exception:
-        pass
+        os.remove(alvo)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Falha ao excluir: {e}")
     return {"ok": True, "deleted": name}
 
 app.include_router(router)
 
-# --------------------- DIAGNÓSTICO DO TOKEN ----------------------------------
+# --------------------- DIAGNÓSTICO SIMPLES DO TOKEN --------------------------
 @app.get("/check_token", response_class=PlainTextResponse)
 async def check_token(x_admin_token: Optional[str] = Header(None)):
     if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
@@ -212,4 +202,4 @@ async def check_token(x_admin_token: Optional[str] = Header(None)):
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
-    uvicorn.run("aplicativo.main:app", host="0.0.0.0", port=port)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port)
