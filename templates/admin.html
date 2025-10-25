@@ -1,183 +1,97 @@
-<!doctype html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Admin — Licitabot</title>
-  <style>
-    :root {
-      --txt:#1f2937;
-      --muted:#64748b;
-      --btn:#0b3d5c;
-      --ok:#166534;
-      --err:#991b1b;
-      --bg:#f5f7fa;
-    }
-    html, body {
-      height:100%; margin:0;
-      font-family:Arial,Helvetica,sans-serif;
-      background:var(--bg); color:var(--txt);
-    }
-    .tabs {
-      display:flex; justify-content:center; gap:8px;
-      padding:16px; background:#e2e8f0;
-      position:sticky; top:0; z-index:10;
-      border-bottom:1px solid #cbd5e1;
-    }
-    .tab {
-      display:flex; align-items:center; gap:4px;
-      background:#fff; border:none;
-      padding:10px 16px; border-radius:12px;
-      font-weight:600; cursor:pointer;
-      box-shadow:0 2px 4px rgba(0,0,0,.08);
-      transition:.2s;
-    }
-    .tab:hover { filter:brightness(1.05); }
-    .card {
-      width:100%; max-width:480px;
-      background:#fff; margin:40px auto;
-      padding:24px; border-radius:16px;
-      box-shadow:0 10px 28px rgba(0,0,0,.1);
-    }
-    h1 { margin:0 0 8px; color:#0b2942; font-size:22px; }
-    p.sub { margin:0 0 16px; color:var(--muted); font-size:14px; }
-    input, button {
-      width:100%; box-sizing:border-box;
-      font-family:inherit; font-size:15px;
-    }
-    input[type=password], input[type=file] {
-      margin:8px 0 12px;
-      padding:10px; border:1px solid #cbd5e1; border-radius:10px;
-    }
-    button {
-      border:none; border-radius:10px;
-      color:#fff; background:var(--btn);
-      font-weight:600; padding:12px; cursor:pointer;
-      transition:.2s;
-    }
-    button:hover { filter:brightness(1.05); }
-    #status { margin-top:12px; font-size:14px; min-height:20px; }
-    .ok { color:var(--ok); }
-    .err { color:var(--err); }
-    .muted { color:var(--muted); }
-    .chip {
-      display:inline-block;
-      background:#f1f5f9;
-      border-radius:10px;
-      padding:8px 12px;
-      margin:6px 8px 6px 0;
-      font-size:14px;
-      box-shadow:0 1px 2px rgba(0,0,0,.08);
-    }
-    .del {
-      background:#dc2626;
-      color:#fff;
-      border:none;
-      border-radius:8px;
-      padding:6px 10px;
-      margin-left:6px;
-      cursor:pointer;
-      font-size:13px;
-    }
-    .del:hover { filter:brightness(1.1); }
-  </style>
-</head>
-<body>
-  <div class="tabs">
-    <button class="tab" id="tabUpload"><span>📦</span><b>Upload</b></button>
-    <button class="tab" id="tabVer"><span>📁</span><b>Ver PDFs</b></button>
-    <a class="tab" href="/" style="text-decoration:none;color:inherit"><span>💬</span><b>Chat</b></a>
-  </div>
+# ------------------------ PÁGINA DO ADMINISTRADOR ----------------------------
+from fastapi import APIRouter
+router = APIRouter()
 
-  <div class="card">
-    <h1>Envio de PDFs (Admin)</h1>
-    <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
-    <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" />
-    <input id="arquivo" type="file" accept="application/pdf" multiple />
-    <button id="btnUpload">Enviar PDFs</button>
+# Pasta de upload e montagem do /pdfs
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
+os.makedirs(UPLOAD_DIR, exist_ok=True)  # evita erro ao montar
+app.mount("/pdfs", StaticFiles(directory=UPLOAD_DIR), name="pdfs")
 
-    <div style="margin-top:10px;"></div>
-    <button id="btnListar" style="background:#075985;">Atualizar lista</button>
+def _ensure_upload_dir():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-    <div id="status"></div>
+# Usa o "templates" GLOBAL já criado no topo: templates = Jinja2Templates(directory="templates")
 
-    <p style="margin-top:10px;font-size:13px;color:var(--muted)">
-      Dica: após enviar, a indexação roda em segundo plano.<br/>
-      Você pode clicar em <b>Ver PDFs</b> para confirmar se o nome apareceu e abrir o arquivo.
-    </p>
+# --- Página /admin (com fallback) ---
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page(request: Request):
+    try:
+        # tenta renderizar normalmente
+        return templates.TemplateResponse("admin.html", {"request": request})
+    except Exception as e:
+        # fallback extremamente simples para você ver a página mesmo se faltar o template
+        html = f"""
+        <!doctype html><meta charset="utf-8">
+        <h1>Admin – Fallback</h1>
+        <p>Falha ao carregar <code>templates/admin.html</code>: <b>{type(e).__name__}</b> – {str(e)}</p>
+        <p>Confirme que o arquivo existe em <code>app/templates/admin.html</code>.</p>
+        """
+        return HTMLResponse(html, status_code=200)
 
-    <div id="lista" style="margin-top:10px;"></div>
-  </div>
+# Atalho opcional /upload → /admin
+@app.get("/upload", response_class=HTMLResponse)
+def upload_alias(request: Request):
+    return admin_page(request)
 
-  <script>
-    function token(){ return (document.getElementById('senha').value || '').trim(); }
-    function msgOk(t){ document.getElementById('status').innerHTML = '<p class="ok">'+t+'</p>'; }
-    function msgErr(t){ document.getElementById('status').innerHTML = '<p class="err">'+t+'</p>'; }
+# === API: Upload de PDFs ===
+@router.post("/upload_pdf")
+async def upload_pdf(file: UploadFile = File(...), x_admin_token: Optional[str] = Header(None)):
+    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    if not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    async function listar(){
-      const senha = token();
-      const r = await fetch('/list_pdfs', { headers:{'X-Admin-Token':senha}});
-      const box = document.getElementById('lista');
-      box.innerHTML='';
-      if(!r.ok){ box.innerHTML='<p class="err">Erro ao listar. Verifique a senha.</p>'; return; }
-      const j = await r.json();
-      if(!j.files || !j.files.length){ box.innerHTML='<p class="muted">Nenhum PDF enviado.</p>'; return; }
-      j.files.forEach(name=>{
-        const row=document.createElement('div');
-        row.className='chip';
-        const link=document.createElement('a');
-        link.href='/pdfs/'+encodeURIComponent(name);
-        link.textContent=name;
-        link.target='_blank';
-        link.style.textDecoration='none';
-        link.style.color='inherit';
-        row.appendChild(link);
-        const del=document.createElement('button');
-        del.className='del';
-        del.textContent='Excluir';
-        del.onclick=async()=>{
-          if(!confirm('Excluir "'+name+'"?'))return;
-          const rr=await fetch('/delete_pdf?name='+encodeURIComponent(name),{
-            method:'DELETE',headers:{'X-Admin-Token':senha}
-          });
-          if(rr.ok){ msgOk('Excluído: '+name); listar(); }
-          else{ msgErr('Falha ao excluir'); }
-        };
-        row.appendChild(del);
-        box.appendChild(row);
-      });
-    }
+    _ensure_upload_dir()
+    destino = os.path.join(UPLOAD_DIR, file.filename)
 
-    async function enviar(){
-      const senha=token();
-      const files=document.getElementById('arquivo').files;
-      if(!senha){return msgErr('Informe a senha.');}
-      if(!files.length){return msgErr('Selecione ao menos 1 PDF.');}
-      msgOk('Enviando...');
-      for(let i=0;i<files.length;i++){
-        const fd=new FormData(); fd.append('file',files[i]);
-        const r=await fetch('/upload_pdf',{method:'POST',headers:{'X-Admin-Token':senha},body:fd});
-        if(r.ok){
-          const j=await r.json();
-          msgOk('📄 '+j.filename+' => upload OK.');
-        }else{
-          const e=await r.text();
-          msgErr('Falha ao enviar '+files[i].name+': '+e);
-          return;
-        }
-      }
-      listar();
-    }
+    try:
+        with open(destino, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                f.write(chunk)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao salvar PDF: {e}")
 
-    document.getElementById('btnUpload').onclick=enviar;
-    document.getElementById('btnListar').onclick=listar;
-    document.getElementById('tabVer').onclick=()=>{
-      listar();
-      document.getElementById('lista').scrollIntoView({behavior:'smooth'});
-    };
-    document.getElementById('tabUpload').onclick=()=>{
-      window.scrollTo({top:0,behavior:'smooth'});
-    };
-  </script>
-</body>
-</html>
+    # Indexa (não derruba upload se falhar)
+    try:
+        ingest_paths([destino])
+        indexed = True
+        index_error = None
+    except Exception as e:
+        indexed = False
+        index_error = str(e)
+
+    return {"ok": True, "filename": file.filename, "indexed": indexed, "index_error": index_error}
+
+# === API: Listar PDFs ===
+@router.get("/list_pdfs")
+async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
+    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    _ensure_upload_dir()
+    files = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
+    return {"files": files}
+
+# === API: Excluir PDF ===
+@router.delete("/delete_pdf")
+async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
+    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    _ensure_upload_dir()
+    alvo = os.path.join(UPLOAD_DIR, name)
+    if not os.path.exists(alvo):
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
+    os.remove(alvo)
+    return {"ok": True, "deleted": name}
+
+# Diagnóstico rápido
+@app.get("/check_token", response_class=PlainTextResponse)
+async def check_token(x_admin_token: Optional[str] = Header(None)):
+    if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
+        return PlainTextResponse("✅ Token válido", status_code=200)
+    return PlainTextResponse("❌ Token inválido", status_code=401)
+
+# Registra as rotas da API do admin
+app.include_router(router)
