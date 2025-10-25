@@ -1,1 +1,157 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Licitabot</title>
+  <link rel="stylesheet" href="/static/estilo.css" />
+  <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f6f8fb;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .topbar {
+      margin-top: 20px;
+    }
+    .btn {
+      display: inline-block;
+      margin: 8px;
+      padding: 10px 18px;
+      border-radius: 10px;
+      background: #e5ecf6;
+      border: none;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .btn:hover { background: #d7e2f2; }
+    .card {
+      background: white;
+      width: 90%;
+      max-width: 500px;
+      margin: 30px auto;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: left;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+    button {
+      background: #003366;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #00509e; }
+    .pdf-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f1f5fb;
+      padding: 10px;
+      margin-top: 5px;
+      border-radius: 8px;
+    }
+    .pdf-item button {
+      background: #c62828;
+      border: none;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <button class="btn" onclick="location.reload()">🔄 Upload</button>
+    <button class="btn" onclick="listarPDFs()">📁 Ver PDFs</button>
+    <button class="btn" onclick="window.location.href='/'">💬 Chat</button>
+  </div>
 
+  <div class="card">
+    <h2>Envio de PDFs (Admin)</h2>
+    <p>Digite a senha do administrador e selecione um ou mais PDFs.</p>
+
+    <input type="password" id="adminToken" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" />
+    <input type="file" id="fileInput" accept=".pdf" multiple />
+    <button onclick="uploadPDF()">Enviar PDFs</button>
+
+    <div id="status"></div>
+    <hr/>
+    <div id="listaPDFs"></div>
+  </div>
+
+  <script>
+    async function uploadPDF() {
+      const senha = document.getElementById("adminToken").value.trim();
+      const arquivos = document.getElementById("fileInput").files;
+      if (!senha || arquivos.length === 0) {
+        alert("Informe a senha e selecione pelo menos um PDF.");
+        return;
+      }
+
+      for (let f of arquivos) {
+        const form = new FormData();
+        form.append("file", f);
+
+        const r = await fetch("/upload_pdf", {
+          method: "POST",
+          headers: { "x-admin-token": senha },
+          body: form
+        });
+
+        const data = await r.json();
+        document.getElementById("status").innerHTML += `<p>${f.name}: ${data.ok ? "✅ Enviado com sucesso" : "❌ Falhou"}</p>`;
+      }
+      listarPDFs();
+    }
+
+    async function listarPDFs() {
+      const senha = document.getElementById("adminToken").value.trim();
+      if (!senha) {
+        alert("Digite a senha do admin para ver os PDFs.");
+        return;
+      }
+
+      const r = await fetch("/list_pdfs", {
+        headers: { "x-admin-token": senha }
+      });
+
+      const data = await r.json();
+      const area = document.getElementById("listaPDFs");
+      area.innerHTML = "";
+      data.files.forEach(f => {
+        area.innerHTML += `
+          <div class="pdf-item">
+            <span>📄 ${f}</span>
+            <button onclick="excluirPDF('${f}')">Excluir</button>
+          </div>`;
+      });
+    }
+
+    async function excluirPDF(nome) {
+      const senha = document.getElementById("adminToken").value.trim();
+      if (!confirm("Deseja realmente excluir " + nome + "?")) return;
+
+      const r = await fetch(`/delete_pdf?name=${encodeURIComponent(nome)}`, {
+        method: "DELETE",
+        headers: { "x-admin-token": senha }
+      });
+
+      const data = await r.json();
+      alert(data.ok ? "Arquivo excluído." : "Erro ao excluir.");
+      listarPDFs();
+    }
+  </script>
+</body>
+</html>
