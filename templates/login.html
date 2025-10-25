@@ -3,115 +3,110 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>LICITABOT — Licitações & Contratos</title>
+  <title>LICITABOT — Assessoria</title>
   <style>
-    :root{
-      --bg:#0b2f3f; --panel:#0f3e54; --txt:#f1f5f9; --muted:#cbd5e1;
-      --box:#e5e7eb; --ink:#0f172a; --cta:#0b3d5c; --ok:#166534; --err:#991b1b;
+    :root{--bg:#f4f6f8;--card:#0b3d5c;--txt:#e6f0f6;--ink:#0f172a;--muted:#94a3b8;--panel:#eef2f6}
+    html,body{height:100%;margin:0}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+    .hero{
+      background:var(--card);color:var(--txt);border-radius:24px;padding:28px 22px;box-shadow:0 16px 40px rgba(0,0,0,.25)
     }
-    *{box-sizing:border-box}
-    body{margin:0;background:linear-gradient(180deg,#0b2f3f,#0e3447 60%,#e9eef4 60%,#e9eef4);
-         font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;color:var(--ink)}
-    .wrap{max-width:880px;margin:28px auto;padding:16px}
-    .hero{background:var(--panel);color:var(--txt);border-radius:22px;padding:28px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
-    .hero h1{margin:8px 0 14px;font-size:28px}
-    .hero p{margin:0 0 18px;color:var(--muted)}
-    .row{display:flex;gap:12px}
-    .inpt{flex:1;padding:12px 14px;border:none;border-radius:12px;background:#294a5b;color:#fff}
-    .btn{background:#1e5169;color:#fff;border:none;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .card{margin-top:18px;background:#f3f4f6;border-radius:18px;padding:18px;box-shadow:0 10px 26px rgba(0,0,0,.08)}
-    .h2{font-size:22px;margin:0 0 10px}
-    .pill{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
-    .pill span{background:#e2e8f0;padding:6px 10px;border-radius:999px;font-size:14px}
-    .qa{margin-top:12px}
-    textarea{width:100%;min-height:120px;border:1px solid #cbd5e1;border-radius:12px;padding:12px}
-    .foot{color:#475569;font-size:12px;margin-top:8px}
-    .msg{margin-top:8px;font-size:14px}
-    .ok{color:var(--ok)} .err{color:var(--err)}
+    .hero h1{margin:0 0 6px;font-size:28px}
+    .hero p{margin:8px 0 0;color:#c7d7e5}
+    .login{margin-top:16px;display:grid;gap:10px;max-width:580px}
+    .login input{padding:12px 14px;border-radius:14px;border:none}
+    .login button{padding:12px 14px;border-radius:14px;border:none;background:#133f5f;color:#fff;font-weight:700;cursor:pointer}
+    .content{background:var(--panel);border-radius:20px;margin-top:18px;padding:18px}
+    h2{margin:2px 0 10px}
+    .ticks{margin:8px 0 10px;color:#0f172a}
+    .ticks li{margin:6px 0}
+    .ask{margin-top:12px;display:grid;gap:10px}
+    .ask input,.ask textarea{padding:12px;border:1px solid #cbd5e1;border-radius:12px}
+    .ask button{padding:12px;border-radius:12px;border:none;background:#0b3d5c;color:#fff;font-weight:700;cursor:pointer}
+    .muted{color:#64748b;font-size:13px;margin-top:10px}
+    .disabled{opacity:.55;pointer-events:none}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="hero">
+      <div style="font-size:13px;opacity:.9;margin-bottom:6px">
+        Não é apenas um chatbot. É uma ferramenta de pesquisa construída a partir de anos de experiência prática em licitações e contratos.
+      </div>
       <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
-      <p>Não é apenas um chatbot. É uma excelente ferramenta de pesquisa em uma base especializada
-        resultante de anos de experiência prática em licitações e contratos — aplicada a uma IA especializada.</p>
+      <p>Acesso restrito a assinantes. Digite a senha de acesso fornecida após o pagamento.</p>
 
-      <div class="row">
-        <input id="senha" class="inpt" type="password" placeholder="🔒 Senha de acesso"/>
-        <button id="btnLogin" class="btn">Entrar</button>
-      </div>
-      <div id="loginMsg" class="msg"></div>
-    </div>
-
-    <div class="card">
-      <h2 class="h2">Quais as diferenças</h2>
-      <div class="pill">
-        <span>✅ Base especializada — não usamos dados genéricos da internet</span>
-        <span>✅ Conhecimento prático — anos de experiência real na área</span>
-        <span>✅ Respostas contextuais — entende nuances de licitações</span>
-        <span>✅ Fontes citadas — você sabe de onde vem a informação</span>
+      <div class="login">
+        <input id="pwd" type="password" placeholder="🔒 Senha de acesso"/>
+        <button id="btnLogin">Entrar</button>
       </div>
     </div>
 
-    <div class="card">
-      <h2 class="h2">Faça perguntas específicas sobre licitações e contratos</h2>
-      <p style="margin:0 0 8px;color:#475569">
-        Experimente a diferença de uma IA treinada exclusivamente com documentos da área.
-      </p>
-      <div class="row" style="gap:8px">
-        <input id="pergunta" class="inpt" type="text" placeholder="Perguntar" disabled/>
-        <button id="btnAsk" class="btn" disabled>Perguntar</button>
+    <div class="content">
+      <h2>Quais as diferenças</h2>
+      <ul class="ticks">
+        <li>✅ Base especializada — não usamos dados genéricos da internet</li>
+        <li>✅ Conhecimento prático — anos de experiência real em licitações e contratos</li>
+        <li>✅ Respostas contextuais — entende as nuances da sua área</li>
+        <li>✅ Fontes citadas — você sabe de onde vem a informação</li>
+      </ul>
+
+      <h2>Faça perguntas específicas sobre licitações e contratos</h2>
+      <div style="color:#475569;margin-top:-6px">Experimente a diferença de uma IA treinada somente com documentos da área.</div>
+
+      <div class="ask">
+        <input id="q" type="text" placeholder="Perguntar" class="disabled"/>
+        <textarea id="a" rows="6" placeholder="Resposta" readonly></textarea>
+        <button id="btnAsk" class="disabled">Perguntar</button>
       </div>
-      <div class="qa">
-        <textarea id="resposta" placeholder="Licitabot:" readonly></textarea>
-      </div>
-      <div class="foot">
-        Isto não substitui consulta/parecer jurídico formal. O assistente usa base especializada,
-        fruto de anos de experiência prática na área por Cláudio Lima.
-      </div>
+
+      <div class="muted">Isto não substitui consulta/parecer jurídico formal.</div>
     </div>
   </div>
 
-  <script>
-    const senha     = document.getElementById('senha');
-    const btnLogin  = document.getElementById('btnLogin');
-    const loginMsg  = document.getElementById('loginMsg');
-    const pergunta  = document.getElementById('pergunta');
-    const btnAsk    = document.getElementById('btnAsk');
-    const resposta  = document.getElementById('resposta');
+<script>
+let liberado = false;
+const qEl = document.getElementById('q');
+const aEl = document.getElementById('a');
+const btnAsk = document.getElementById('btnAsk');
 
-    btnLogin.onclick = async () => {
-      loginMsg.textContent = '';
-      const r = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({password: senha.value || ''})
-      });
-      if (r.ok) {
-        loginMsg.innerHTML = '<span class="ok">✅ Senha aceita. Perguntas liberadas.</span>';
-        pergunta.disabled = false; btnAsk.disabled = false;
-        pergunta.focus();
-      } else {
-        const j = await r.json().catch(()=>({error:'Erro'}));
-        loginMsg.innerHTML = '<span class="err">❌ ' + (j.error || 'Senha inválida') + '</span>';
-        pergunta.disabled = true; btnAsk.disabled = true;
-      }
-    };
+function trava(v){
+  if(v){ qEl.classList.add('disabled'); btnAsk.classList.add('disabled'); }
+  else { qEl.classList.remove('disabled'); btnAsk.classList.remove('disabled'); }
+}
 
-    btnAsk.onclick = async () => {
-      const q = (pergunta.value || '').trim();
-      if (!q) return;
-      resposta.value = 'Consultando...';
-      const r = await fetch('/ask', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({question: q})
-      });
-      const j = await r.json().catch(()=>({answer:'Erro'}));
-      resposta.value = j.answer || 'Sem resposta.';
-    };
-  </script>
+async function login(){
+  const pwd = (document.getElementById('pwd').value || '').trim();
+  const r = await fetch('/login', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({password: pwd})
+  });
+  if(r.ok){
+    liberado = true; trava(false);
+    aEl.value = '✔ Acesso liberado. Agora você pode perguntar.';
+  }else{
+    liberado = false; trava(true);
+    aEl.value = '✖ Senha incorreta.';
+  }
+}
+
+async function ask(){
+  if(!liberado){ return; }
+  const question = (qEl.value || '').trim();
+  if(!question){ return; }
+  aEl.value = 'Consultando a base…';
+  const r = await fetch('/ask', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({question})
+  });
+  if(!r.ok){ aEl.value = 'Erro na consulta.'; return; }
+  const j = await r.json();
+  aEl.value = 'Licitabot: ' + j.answer;
+}
+
+document.getElementById('btnLogin').onclick = login;
+btnAsk.onclick = ask;
+</script>
 </body>
 </html>
