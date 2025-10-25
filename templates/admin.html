@@ -3,146 +3,181 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Upload de PDFs — Licitabot</title>
+  <title>Admin — Licitabot</title>
   <style>
-    :root{
-      --bg:#f5f7fa; --card:#fff; --txt:#0f172a; --muted:#475569;
-      --btn:#0b3d5c; --btn2:#0e7490; --ok:#166534; --err:#991b1b;
-      --chip:#e2e8f0;
+    :root {
+      --txt:#1f2937;
+      --muted:#64748b;
+      --btn:#0b3d5c;
+      --ok:#166534;
+      --err:#991b1b;
+      --bg:#f5f7fa;
     }
-    html,body{height:100%;margin:0}
-    body{
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,Helvetica,sans-serif;
+    html, body {
+      height:100%; margin:0;
+      font-family:Arial,Helvetica,sans-serif;
       background:var(--bg); color:var(--txt);
-      display:flex; align-items:flex-start; justify-content:center; padding:24px;
     }
-    .wrap{width:100%; max-width:980px}
-    .tabs{
-      display:flex; gap:16px; margin-bottom:18px; flex-wrap:wrap;
+    .tabs {
+      display:flex; justify-content:center; gap:8px;
+      padding:16px; background:#e2e8f0;
+      position:sticky; top:0; z-index:10;
+      border-bottom:1px solid #cbd5e1;
     }
-    .tab{
-      background:#e8eef6; border-radius:16px; padding:16px 22px; display:flex; align-items:center; gap:10px;
-      box-shadow:0 8px 20px rgba(0,0,0,.06);
+    .tab {
+      display:flex; align-items:center; gap:4px;
+      background:#fff; border:none;
+      padding:10px 16px; border-radius:12px;
+      font-weight:600; cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,.08);
+      transition:.2s;
     }
-    .tab b{font-size:18px}
-    .card{
-      background:var(--card); border-radius:20px; box-shadow:0 12px 30px rgba(0,0,0,.10);
-      padding:26px;
+    .tab:hover { filter:brightness(1.05); }
+    .card {
+      width:100%; max-width:480px;
+      background:#fff; margin:40px auto;
+      padding:24px; border-radius:16px;
+      box-shadow:0 10px 28px rgba(0,0,0,.1);
     }
-    h1{margin:2px 0 10px; font-size:32px; color:#0b2942}
-    p.sub{margin:0 0 18px; color:var(--muted)}
-    .row{display:flex; gap:12px; margin:10px 0; flex-wrap:wrap}
-    input[type=password]{flex:1; min-width:240px; padding:12px 14px; border-radius:12px; border:1px solid #cbd5e1}
-    input[type=file]{flex:1; min-width:240px; padding:10px; border-radius:12px; border:1px solid #cbd5e1; background:#fff}
-    button{
-      background:var(--btn); color:#fff; border:none; padding:12px 18px; border-radius:12px; font-weight:700; cursor:pointer
+    h1 { margin:0 0 8px; color:#0b2942; font-size:22px; }
+    p.sub { margin:0 0 16px; color:var(--muted); font-size:14px; }
+    input, button {
+      width:100%; box-sizing:border-box;
+      font-family:inherit; font-size:15px;
     }
-    button:hover{filter:brightness(1.05)}
-    .muted{color:var(--muted); font-size:14px; margin-top:18px}
-    #status{margin-top:12px; font-size:14px}
-    .ok{color:var(--ok)} .err{color:var(--err)}
-    .list{
-      margin-top:18px; padding-top:14px; border-top:1px dashed #cbd5e1;
-      display:grid; grid-template-columns:1fr auto; gap:10px 12px;
+    input[type=password], input[type=file] {
+      margin:8px 0 12px;
+      padding:10px; border:1px solid #cbd5e1; border-radius:10px;
     }
-    .chip{background:var(--chip); padding:8px 12px; border-radius:999px; font-size:14px}
-    .del{background:#b91c1c}
-    .del:hover{filter:brightness(1.05)}
-    .toolbar{display:flex; gap:8px; align-items:center; margin-top:6px}
-    .toolbar button{background:var(--btn2)}
+    button {
+      border:none; border-radius:10px;
+      color:#fff; background:var(--btn);
+      font-weight:600; padding:12px; cursor:pointer;
+      transition:.2s;
+    }
+    button:hover { filter:brightness(1.05); }
+    #status { margin-top:12px; font-size:14px; min-height:20px; }
+    .ok { color:var(--ok); }
+    .err { color:var(--err); }
+    .muted { color:var(--muted); }
+    .chip {
+      display:inline-block;
+      background:#f1f5f9;
+      border-radius:10px;
+      padding:8px 12px;
+      margin:6px 8px 6px 0;
+      font-size:14px;
+      box-shadow:0 1px 2px rgba(0,0,0,.08);
+    }
+    .del {
+      background:#dc2626;
+      color:#fff;
+      border:none;
+      border-radius:8px;
+      padding:6px 10px;
+      margin-left:6px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .del:hover { filter:brightness(1.1); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="tabs">
-      <div class="tab"><span>📦</span><b>Upload</b></div>
-      <div class="tab"><span>📁</span><b>Ver PDFs</b></div>
-      <a class="tab" href="/" style="text-decoration:none;color:inherit"><span>💬</span><b>Chat</b></a>
-    </div>
-
-    <div class="card">
-      <h1>Envio de PDFs (Admin)</h1>
-      <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
-
-      <div class="row">
-        <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)"/>
-      </div>
-      <div class="row">
-        <input id="arquivo" type="file" accept="application/pdf" multiple/>
-        <button id="btnUpload">Enviar PDFs</button>
-      </div>
-
-      <div class="toolbar">
-        <button id="btnListar">Atualizar lista</button>
-        <span class="muted">Dica: após enviar, a indexação roda em segundo plano.</span>
-      </div>
-
-      <div id="status"></div>
-      <div id="lista" class="list"></div>
-    </div>
+  <div class="tabs">
+    <button class="tab" id="tabUpload"><span>📦</span><b>Upload</b></button>
+    <button class="tab" id="tabVer"><span>📁</span><b>Ver PDFs</b></button>
+    <a class="tab" href="/" style="text-decoration:none;color:inherit"><span>💬</span><b>Chat</b></a>
   </div>
 
-<script>
-function token(){ return (document.getElementById('senha').value || '').trim(); }
+  <div class="card">
+    <h1>Envio de PDFs (Admin)</h1>
+    <p class="sub">Digite a senha do administrador e selecione um ou mais PDFs.</p>
+    <input id="senha" type="password" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" />
+    <input id="arquivo" type="file" accept="application/pdf" multiple />
+    <button id="btnUpload">Enviar PDFs</button>
 
-function msgOk(t){ document.getElementById('status').innerHTML = '<p class="ok">✅ '+t+'</p>'; }
-function msgErr(t){ document.getElementById('status').innerHTML = '<p class="err">❌ '+t+'</p>'; }
+    <div style="margin-top:10px;"></div>
+    <button id="btnListar" style="background:#075985;">Atualizar lista</button>
 
-async function listar(){
-  const r = await fetch('/list_pdfs', { headers: { 'X-Admin-Token': token() }});
-  const box = document.getElementById('lista');
-  box.innerHTML = '';
-  if(!r.ok){ box.innerHTML = '<span class="err">Não foi possível listar. Verifique a senha.</span>'; return; }
-  const j = await r.json();
-  if(!j.files || !j.files.length){ box.innerHTML = '<span class="muted">Nenhum PDF enviado ainda.</span>'; return; }
-  j.files.forEach(name=>{
-    const chip = document.createElement('div');
-    chip.className='chip';
-    chip.textContent = name;
-    const del = document.createElement('button');
-    del.className='del';
-    del.textContent='Excluir';
-    del.onclick = async ()=>{
-      if(!confirm('Excluir "'+name+'"?')) return;
-      const rr = await fetch('/delete_pdf?name='+encodeURIComponent(name), {
-        method:'DELETE', headers:{'X-Admin-Token': token()}
-      });
-      if(rr.ok){ msgOk('Arquivo excluído: '+name); listar(); }
-      else{ msgErr('Erro ao excluir'); }
-    };
-    box.appendChild(chip);
-    box.appendChild(del);
-  });
-}
+    <div id="status"></div>
 
-async function enviar(){
-  const senha = token();
-  const files = document.getElementById('arquivo').files;
-  if(!senha){ return msgErr('Informe a senha do administrador.'); }
-  if(!files.length){ return msgErr('Selecione ao menos um PDF.'); }
-  msgOk('Enviando…');
+    <p style="margin-top:10px;font-size:13px;color:var(--muted)">
+      Dica: após enviar, a indexação roda em segundo plano.<br/>
+      Você pode clicar em <b>Ver PDFs</b> para confirmar se o nome apareceu e abrir o arquivo.
+    </p>
 
-  for(let i=0;i<files.length;i++){
-    const fd = new FormData(); fd.append('file', files[i]);
-    const r = await fetch('/upload_pdf', {
-      method:'POST',
-      headers:{ 'X-Admin-Token': senha },
-      body: fd
-    });
-    if(r.ok){
+    <div id="lista" style="margin-top:10px;"></div>
+  </div>
+
+  <script>
+    function token(){ return (document.getElementById('senha').value || '').trim(); }
+    function msgOk(t){ document.getElementById('status').innerHTML = '<p class="ok">'+t+'</p>'; }
+    function msgErr(t){ document.getElementById('status').innerHTML = '<p class="err">'+t+'</p>'; }
+
+    async function listar(){
+      const senha = token();
+      const r = await fetch('/list_pdfs', { headers:{'X-Admin-Token':senha}});
+      const box = document.getElementById('lista');
+      box.innerHTML='';
+      if(!r.ok){ box.innerHTML='<p class="err">Erro ao listar. Verifique a senha.</p>'; return; }
       const j = await r.json();
-      msgOk('📄 '+j.filename+' => upload OK (indexação agendada).');
-    }else{
-      const e = await r.text();
-      msgErr('Falha ao enviar '+files[i].name+': '+e);
-      return;
+      if(!j.files || !j.files.length){ box.innerHTML='<p class="muted">Nenhum PDF enviado.</p>'; return; }
+      j.files.forEach(name=>{
+        const row=document.createElement('div');
+        row.className='chip';
+        const link=document.createElement('a');
+        link.href='/pdfs/'+encodeURIComponent(name);
+        link.textContent=name;
+        link.target='_blank';
+        link.style.textDecoration='none';
+        link.style.color='inherit';
+        row.appendChild(link);
+        const del=document.createElement('button');
+        del.className='del';
+        del.textContent='Excluir';
+        del.onclick=async()=>{
+          if(!confirm('Excluir "'+name+'"?'))return;
+          const rr=await fetch('/delete_pdf?name='+encodeURIComponent(name),{
+            method:'DELETE',headers:{'X-Admin-Token':senha}
+          });
+          if(rr.ok){ msgOk('Excluído: '+name); listar(); }
+          else{ msgErr('Falha ao excluir'); }
+        };
+        row.appendChild(del);
+        box.appendChild(row);
+      });
     }
-  }
-  listar();
-}
 
-document.getElementById('btnUpload').onclick = enviar;
-document.getElementById('btnListar').onclick = listar;
-</script>
+    async function enviar(){
+      const senha=token();
+      const files=document.getElementById('arquivo').files;
+      if(!senha){return msgErr('Informe a senha.');}
+      if(!files.length){return msgErr('Selecione ao menos 1 PDF.');}
+      msgOk('Enviando...');
+      for(let i=0;i<files.length;i++){
+        const fd=new FormData(); fd.append('file',files[i]);
+        const r=await fetch('/upload_pdf',{method:'POST',headers:{'X-Admin-Token':senha},body:fd});
+        if(r.ok){
+          const j=await r.json();
+          msgOk('📄 '+j.filename+' => upload OK.');
+        }else{
+          const e=await r.text();
+          msgErr('Falha ao enviar '+files[i].name+': '+e);
+          return;
+        }
+      }
+      listar();
+    }
+
+    document.getElementById('btnUpload').onclick=enviar;
+    document.getElementById('btnListar').onclick=listar;
+    document.getElementById('tabVer').onclick=()=>{
+      listar();
+      document.getElementById('lista').scrollIntoView({behavior:'smooth'});
+    };
+    document.getElementById('tabUpload').onclick=()=>{
+      window.scrollTo({top:0,behavior:'smooth'});
+    };
+  </script>
 </body>
 </html>
