@@ -1,1 +1,106 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin - Licitabot</title>
+  <link rel="stylesheet" href="/static/estilo.css" />
+</head>
+<body>
+  <div class="topbar">
+    <button class="btn" onclick="mostrar('upload')">📦 Upload</button>
+    <button class="btn" onclick="listar()">📁 Ver PDFs</button>
+    <button class="btn" onclick="window.location.href='/'">💬 Chat</button>
+  </div>
 
+  <div class="card">
+    <h2>Envio de PDFs (Admin)</h2>
+    <p>Digite a senha do administrador e selecione um ou mais PDFs.</p>
+    <input type="password" id="adminToken" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" />
+    <input type="file" id="fileInput" accept=".pdf" multiple />
+    <button onclick="uploadPDF()">Enviar PDFs</button>
+
+    <div id="status"></div>
+    <hr/>
+
+    <div id="bloco-lista" style="display:none">
+      <h3>Arquivos na base</h3>
+      <div style="margin-bottom:10px">
+        <input type="password" id="senhaLista" placeholder="Senha do admin" />
+        <button onclick="listar()">Atualizar lista</button>
+      </div>
+      <div id="listaPDFs"></div>
+    </div>
+  </div>
+
+  <script>
+    function mostrar(qual){
+      document.getElementById('bloco-lista').style.display = (qual==='lista') ? 'block' : 'none';
+    }
+
+    async function uploadPDF() {
+      const senha = document.getElementById("adminToken").value.trim();
+      const arquivos = document.getElementById("fileInput").files;
+      const box = document.getElementById("status");
+      if (!senha || arquivos.length === 0) {
+        alert("Informe a senha e selecione pelo menos um PDF.");
+        return;
+      }
+      box.innerHTML = "";
+      for (let f of arquivos) {
+        const form = new FormData();
+        form.append("file", f);
+        const r = await fetch("/upload_pdf", {
+          method: "POST",
+          headers: { "X-Admin-Token": senha },
+          body: form
+        });
+        const data = await r.json();
+        box.innerHTML += `<p class="${data.ok?'ok':'err'}">${f.name}: ${data.ok ? "✅ enviado" : "❌ falhou"} ${data.index_error ? " — indexação: "+data.index_error : ""}</p>`;
+      }
+      listar();
+    }
+
+    async function listar() {
+      mostrar('lista');
+      const senha = document.getElementById("senhaLista").value.trim() || document.getElementById("adminToken").value.trim();
+      const area = document.getElementById("listaPDFs");
+      area.innerHTML = "Carregando...";
+      const r = await fetch("/list_pdfs", { headers: { "X-Admin-Token": senha } });
+      if (!r.ok) {
+        area.innerHTML = "Erro ao listar (verifique a senha).";
+        return;
+      }
+      const data = await r.json();
+      if (!data.files || !data.files.length) {
+        area.innerHTML = "<i>Nenhum PDF enviado.</i>";
+        return;
+      }
+      area.innerHTML = "";
+      data.files.forEach(nome => {
+        const linha = document.createElement("div");
+        linha.className = "pdf-item";
+        linha.innerHTML = `
+          <span>📄 ${nome}</span>
+          <div>
+            <a class="btn-link" href="/pdfs/${encodeURIComponent(nome)}" target="_blank" style="margin-right:8px">Abrir</a>
+            <button onclick="excluirPDF('${nome}')">Excluir</button>
+          </div>
+        `;
+        area.appendChild(linha);
+      });
+    }
+
+    async function excluirPDF(nome) {
+      const senha = document.getElementById("senhaLista").value.trim() || document.getElementById("adminToken").value.trim();
+      if (!confirm("Excluir \"" + nome + "\"?")) return;
+      const r = await fetch(`/delete_pdf?name=${encodeURIComponent(nome)}`, {
+        method: "DELETE",
+        headers: { "X-Admin-Token": senha }
+      });
+      if (r.ok) listar();
+      else alert("Falha ao excluir.");
+    }
+  </script>
+</body>
+</html>
