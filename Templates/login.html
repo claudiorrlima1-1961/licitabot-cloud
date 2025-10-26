@@ -3,104 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin - Licitabot</title>
+  <title>Licitabot – Acesso</title>
   <link rel="stylesheet" href="/static/estilo.css" />
 </head>
 <body>
-  <div class="topbar">
-    <button class="btn" onclick="mostrar('upload')">📦 Upload</button>
-    <button class="btn" onclick="listar()">📁 Ver PDFs</button>
-    <button class="btn" onclick="window.location.href='/'">💬 Chat</button>
+  <div class="card azul">
+    <h2>LICITABOT — Assessoria de Licitações e Contratos</h2>
+    <p>Acesso restrito a assinantes. Digite a senha de acesso fornecida após o pagamento.</p>
+    <input type="password" id="senha" placeholder="🔒 Senha de acesso" />
+    <button onclick="entrar()">Entrar</button>
   </div>
 
-  <div class="card">
-    <h2>Envio de PDFs (Admin)</h2>
-    <p>Digite a senha do administrador e selecione um ou mais PDFs.</p>
-    <input type="password" id="adminToken" placeholder="Senha do admin (ADMIN_UPLOAD_TOKEN)" />
-    <input type="file" id="fileInput" accept=".pdf" multiple />
-    <button onclick="uploadPDF()">Enviar PDFs</button>
+  <div class="section">
+    <h3>Quais as diferenças</h3>
+    <ul>
+      <li>✅ Base especializada — não usamos dados genéricos da internet</li>
+      <li>✅ Conhecimento prático — anos de experiência real em licitações e contratos</li>
+      <li>✅ Respostas contextuais — entende as nuances da sua área</li>
+      <li>✅ Fontes citadas — você sabe de onde vem a informação</li>
+    </ul>
 
-    <div id="status"></div>
-    <hr/>
-
-    <div id="bloco-lista" style="display:none">
-      <h3>Arquivos na base</h3>
-      <div style="margin-bottom:10px">
-        <input type="password" id="senhaLista" placeholder="Senha do admin" />
-        <button onclick="listar()">Atualizar lista</button>
-      </div>
-      <div id="listaPDFs"></div>
-    </div>
+    <h3>Faça perguntas específicas sobre licitações e contratos</h3>
+    <input type="text" id="pergunta" placeholder="Digite sua pergunta..." disabled />
+    <textarea id="resposta" placeholder="A resposta aparecerá aqui..." readonly></textarea>
+    <p class="rodape">Isto não substitui consulta/parecer jurídico formal.</p>
   </div>
 
   <script>
-    function mostrar(qual){
-      document.getElementById('bloco-lista').style.display = (qual==='lista') ? 'block' : 'none';
+    async function entrar() {
+      const senha = document.getElementById("senha").value.trim();
+      const resp = await fetch("/login", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ password: senha })
+      });
+      const data = await resp.json();
+      if (data.ok) {
+        document.getElementById("pergunta").disabled = false;
+        alert("Acesso liberado.");
+      } else {
+        alert("Senha incorreta.");
+      }
     }
 
-    async function uploadPDF() {
-      const senha = document.getElementById("adminToken").value.trim();
-      const arquivos = document.getElementById("fileInput").files;
-      const box = document.getElementById("status");
-      if (!senha || arquivos.length === 0) {
-        alert("Informe a senha e selecione pelo menos um PDF.");
-        return;
-      }
-      box.innerHTML = "";
-      for (let f of arquivos) {
-        const form = new FormData();
-        form.append("file", f);
-        const r = await fetch("/upload_pdf", {
+    document.getElementById("pergunta").addEventListener("keypress", async (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const q = e.target.value;
+        const resp = await fetch("/ask", {
           method: "POST",
-          headers: { "X-Admin-Token": senha },
-          body: form
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({ question: q })
         });
-        const data = await r.json();
-        box.innerHTML += `<p class="${data.ok?'ok':'err'}">${f.name}: ${data.ok ? "✅ enviado" : "❌ falhou"} ${data.index_error ? " — indexação: "+data.index_error : ""}</p>`;
+        const data = await resp.json();
+        document.getElementById("resposta").value = "Licitabot: " + data.answer;
       }
-      listar();
-    }
-
-    async function listar() {
-      mostrar('lista');
-      const senha = document.getElementById("senhaLista").value.trim() || document.getElementById("adminToken").value.trim();
-      const area = document.getElementById("listaPDFs");
-      area.innerHTML = "Carregando...";
-      const r = await fetch("/list_pdfs", { headers: { "X-Admin-Token": senha } });
-      if (!r.ok) {
-        area.innerHTML = "Erro ao listar (verifique a senha).";
-        return;
-      }
-      const data = await r.json();
-      if (!data.files || !data.files.length) {
-        area.innerHTML = "<i>Nenhum PDF enviado.</i>";
-        return;
-      }
-      area.innerHTML = "";
-      data.files.forEach(nome => {
-        const linha = document.createElement("div");
-        linha.className = "pdf-item";
-        linha.innerHTML = `
-          <span>📄 ${nome}</span>
-          <div>
-            <a class="btn-link" href="/pdfs/${encodeURIComponent(nome)}" target="_blank" style="margin-right:8px">Abrir</a>
-            <button onclick="excluirPDF('${nome}')">Excluir</button>
-          </div>
-        `;
-        area.appendChild(linha);
-      });
-    }
-
-    async function excluirPDF(nome) {
-      const senha = document.getElementById("senhaLista").value.trim() || document.getElementById("adminToken").value.trim();
-      if (!confirm("Excluir \"" + nome + "\"?")) return;
-      const r = await fetch(`/delete_pdf?name=${encodeURIComponent(nome)}`, {
-        method: "DELETE",
-        headers: { "X-Admin-Token": senha }
-      });
-      if (r.ok) listar();
-      else alert("Falha ao excluir.");
-    }
+    });
   </script>
 </body>
 </html>
