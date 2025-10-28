@@ -122,6 +122,7 @@ def _ensure_upload_dir():
 async def admin_page(request: Request):
     """Interface do administrador: upload, listagem e exclusão."""
     return templates.TemplateResponse("admin.html", {"request": request})
+app.include_router(router)
 
 @router.post("/upload_pdf")
 async def upload_pdf(
