@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Plai
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# ---- Suas dependências RAG (já existentes no projeto) -----------------------
+# ---- RAG (suas dependências existentes) -------------------------------------
 from .rag_store import ingest_paths, search, context_from_hits
 from .core import answer
 
@@ -22,16 +22,35 @@ app = FastAPI(title="Licitabot — Cloud")
 log = logging.getLogger("licitabot")
 log.setLevel(logging.INFO)
 
-# PASTAS ESTÁTICAS E TEMPLATES
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+# --------------------- Localização robusta dos diretórios --------------------
+def _choose_dir(candidates):
+    """Retorna o primeiro caminho existente na lista de candidatos."""
+    for p in candidates:
+        if os.path.isdir(p):
+            return p
+    return candidates[0]  # fallback (mesmo que não exista, para logar erro se houver)
 
-# VARIÁVEIS DE AMBIENTE
-ACCESS_PASSWORD     = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
-ADMIN_UPLOAD_TOKEN  = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN") or "admin123").strip()
-SECRET_KEY          = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
+# Se você usa Dockerfile copiando para /templates e /static, estes existirão:
+TEMPLATES_DIR = _choose_dir(["templates", "app/templates", "aplicativo/templates"])
+STATIC_DIR    = _choose_dir(["static",    "app/static",    "aplicativo/estatico", "aplicativo/static"])
 
-# SESSÃO (para liberar perguntas)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+# --------------------------- Variáveis de ambiente ---------------------------
+ACCESS_PASSWORD    = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
+ADMIN_UPLOAD_TOKEN = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN") or "admin123").strip()
+SECRET_KEY         = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
+
+# Diretório PERSISTENTE para os PDFs:
+# - Em produção (Render), use um Disk montado em /data.
+# - Em desenvolvimento local, será criado em ./app/uploaded_pdfs.
+DEFAULT_UPLOAD_DIR = "/data/uploaded_pdfs"
+FALLBACK_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
+UPLOAD_DIR = os.environ.get("UPLOAD_DIR", DEFAULT_UPLOAD_DIR if os.path.isdir("/data") else FALLBACK_UPLOAD_DIR)
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# ----------------------------- Sessão simples --------------------------------
 SESSION_COOKIE = "licita_sess"
 SESSION_TTL    = 60 * 60 * 24 * 7  # 7 dias
 
@@ -58,14 +77,20 @@ def _require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Acesso não autorizado.")
     return True
 
-# SAÚDE
+# --------------------------------- Saúde -------------------------------------
 @app.get("/health")
 def health():
     try:
         ok = bool(search("teste", k=1) is not None)
     except Exception:
         ok = False
-    return {"status": "online", "rag": ok}
+    return {
+        "status": "online",
+        "rag": ok,
+        "templates_dir": TEMPLATES_DIR,
+        "static_dir": STATIC_DIR,
+        "upload_dir": UPLOAD_DIR,
+    }
 
 # ------------------------ PÁGINA DO USUÁRIO ----------------------------------
 @app.get("/", response_class=HTMLResponse)
@@ -98,6 +123,7 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
     try:
         ans = answer(q, ctx)
     except Exception as e:
+        log.exception("Falha ao consultar modelo")
         ans = f"Erro ao consultar o modelo: {e}"
 
     # Se mandar cabeçalho de admin, devolve citações (útil p/ auditoria)
@@ -113,16 +139,16 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
 
 # ------------------------ PÁGINA DO ADMINISTRADOR ----------------------------
 router = APIRouter()
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
-
-def _ensure_upload_dir():
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request):
     """Interface do administrador: upload, listagem e exclusão."""
     return templates.TemplateResponse("admin.html", {"request": request})
-app.include_router(router)
+
+# Alias opcional: /upload → /admin
+@router.get("/upload", include_in_schema=False)
+def upload_alias():
+    return RedirectResponse(url="/admin", status_code=307)
 
 @router.post("/upload_pdf")
 async def upload_pdf(
@@ -136,7 +162,7 @@ async def upload_pdf(
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
 
-    _ensure_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     destino = os.path.join(UPLOAD_DIR, file.filename)
 
     # Grava em chunks estáveis
@@ -156,6 +182,7 @@ async def upload_pdf(
         ingest_paths([destino])
     except Exception as e:
         log.exception("Falha ao indexar PDF")
+        # não derruba o upload; apenas informa o erro de indexação
         return {"ok": True, "filename": file.filename, "indexed": False, "index_error": str(e)}
 
     return {"ok": True, "filename": file.filename, "indexed": True}
@@ -164,7 +191,7 @@ async def upload_pdf(
 async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    _ensure_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     itens = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
     return {"files": itens}
 
@@ -172,13 +199,13 @@ async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
 async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
-    _ensure_upload_dir()
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     alvo = os.path.join(UPLOAD_DIR, name)
     if not os.path.exists(alvo):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
     try:
         os.remove(alvo)
-        # Opcional: reindexar tudo. Simplesmente tenta indexar o diretório atual.
+        # Reindexação simples do diretório restante (opcional)
         try:
             paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
             if paths:
