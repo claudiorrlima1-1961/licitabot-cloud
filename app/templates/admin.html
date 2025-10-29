@@ -4,230 +4,175 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Envio de PDFs (Administrador)</title>
+  <link rel="stylesheet" href="/static/style.css" />
   <style>
-    :root{--bg:#f7f9fc;--card:#fff;--text:#0f172a;--muted:#475569;--ok:#0ea5e9;--ok2:#16a34a;--warn:#eab308;--err:#dc2626}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
-    .wrap{max-width:860px;margin:32px auto;padding:0 16px}
-    .card{background:var(--card);border-radius:16px;box-shadow:0 6px 20px rgba(2,6,23,.06);padding:20px;margin-bottom:18px}
-    h1{margin:0 0 8px;font-size:28px}
-    p.muted{color:var(--muted);margin:0 0 16px}
-    label{display:block;font-weight:600;margin:10px 0 6px}
-    input[type="password"],input[type="text"],input[type="file"],textarea{
-      width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:16px
-    }
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer}
-    .btn-primary{background:#0f3b57;color:#fff}
-    .btn-secondary{background:#e2e8f0;color:#0f172a}
-    .btn-danger{background:var(--err);color:#fff}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .status{margin-top:12px;font-size:14px}
-    .status.ok{color:var(--ok2)}
-    .status.err{color:var(--err)}
-    .list .item{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #eef2f7}
-    .name{display:flex;align-items:center;gap:10px;max-width:70%;word-break:break-word}
-    .pill{background:#f1f5f9;border-radius:999px;padding:2px 8px;font-size:12px;color:#334155}
-    .actions{display:flex;gap:8px}
-    .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}
-    .progress > span{display:block;height:100%;width:0;background:#0ea5e9;transition:width .2s}
-    small.helper{display:block;color:#64748b}
+    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f6f8fb; color:#1c2635;}
+    .wrap{max-width:900px; margin:32px auto; padding:0 16px;}
+    .card{background:#fff; border-radius:20px; box-shadow:0 10px 24px rgba(2,18,33,.06); padding:28px;}
+    h1{margin:0 0 8px; font-size:32px}
+    .hint{color:#5b6b7b; font-size:14px}
+    .row{margin-top:18px}
+    input[type="password"], input[type="text"]{width:100%; height:48px; border-radius:12px; border:1px solid #d8e0ea; padding:0 12px; font-size:16px; outline:none}
+    input[type="file"]{width:100%}
+    .btn{display:inline-flex; align-items:center; gap:10px; border:none; border-radius:14px; background:#0e3a5b; color:#fff; padding:14px 20px; font-weight:600; cursor:pointer}
+    .btn.secondary{background:#153e66}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    .pill{display:inline-block; background:#eef4ff; color:#0e3a5b; border-radius:999px; padding:4px 10px; font-size:12px}
+    .status{margin-top:14px; white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#f4f7fb; border:1px solid #e7edf5; padding:10px 12px; border-radius:10px}
+    .list{margin-top:18px; display:flex; flex-direction:column; gap:10px}
+    .item{display:flex; align-items:center; justify-content:space-between; gap:10px; background:#f8fbff; border:1px solid #e7edf5; padding:12px; border-radius:12px}
+    .name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+    .danger{background:#b42318}
+    .toolbar{display:flex; gap:12px; flex-wrap:wrap}
+    .topnav{display:flex; gap:12px; margin-bottom:16px}
+    .link{background:#e9f1ff; color:#143b63; padding:10px 14px; border-radius:12px; text-decoration:none; font-weight:600}
+    .muted{color:#6a7a8b}
+    .spinner{width:16px;height:16px;border:3px solid #c7d6ea;border-top-color:#0e3a5b;border-radius:50%;animation:spin .8s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>Envio de PDFs (Administrador)</h1>
-      <p class="muted">Insira a senha do administrador (<code>ADMIN_UPLOAD_TOKEN</code>) e envie seus arquivos.</p>
-
-      <label for="token">Senha do administrador</label>
-      <input id="token" type="password" placeholder="••••••••" autocomplete="off" />
-
-      <div class="row" style="margin-top:10px">
-        <div style="flex:1 1 360px">
-          <label for="file">Selecionar PDF</label>
-          <input id="file" type="file" accept="application/pdf" />
-          <div class="progress" id="prog" hidden><span></span></div>
-          <small class="helper">Arquivos muito grandes podem falhar em provedores PaaS. Prefira <b>&lt; 100 MB</b>.</small>
-        </div>
-      </div>
-
-      <div class="row" style="margin-top:12px">
-        <button id="btnUpload" class="btn btn-primary">📤 Enviar PDFs</button>
-        <button id="btnList" class="btn btn-secondary">📄 Ver PDFs Enviados</button>
-      </div>
-      <div id="status" class="status"></div>
+    <div class="topnav">
+      <a class="link" href="/admin">Upload</a>
+      <a class="link" id="btnList">Ver PDFs</a>
+      <a class="link" href="/">Chat</a>
     </div>
 
     <div class="card">
-      <h2 style="margin:0 0 8px">Arquivos no servidor</h2>
-      <div id="files" class="list" role="list"></div>
+      <h1>Envio de PDFs <span class="pill">(Administrador)</span></h1>
+      <p class="hint">Insira a senha do administrador (<code>ADMIN_UPLOAD_TOKEN</code>) e envie seus arquivos. PDFs muito grandes podem falhar em PaaS. Prefira &lt; <b>80–100&nbsp;MB</b>.</p>
+
+      <div class="row">
+        <label class="muted">Senha do administrador</label>
+        <input type="password" id="admPwd" placeholder="ADMIN_UPLOAD_TOKEN" />
+      </div>
+
+      <div class="row">
+        <label class="muted">Selecionar PDF</label>
+        <input type="file" id="file" accept="application/pdf" />
+      </div>
+
+      <div class="row toolbar">
+        <button class="btn" id="btnUpload">📦 Enviar PDFs</button>
+        <button class="btn secondary" id="btnRefresh">📄 Ver PDFs Enviados</button>
+      </div>
+
+      <div id="msg" class="status" style="display:none"></div>
+
+      <h3 style="margin-top:26px">Arquivos no servidor</h3>
+      <div id="list" class="list"></div>
     </div>
   </div>
 
-  <script>
-    const $ = (q)=>document.querySelector(q);
-    const tokenEl = $('#token');
-    const fileEl  = $('#file');
-    const statusEl= $('#status');
-    const listEl  = $('#files');
-    const progEl  = $('#prog'); const progBar = $('#prog span');
+<script>
+const $ = s => document.querySelector(s);
+const msg = $("#msg");
+const list = $("#list");
+const btnUpload = $("#btnUpload");
+const btnRefresh = $("#btnRefresh");
+const btnList = $("#btnList");
 
-    function setStatus(msg, ok=false, err=false){
-      statusEl.className = 'status' + (ok?' ok':'') + (err?' err':'');
-      statusEl.textContent = msg || '';
+function show(text, isError=false){
+  msg.style.display = "block";
+  msg.style.borderColor = isError ? "#ffd5d5" : "#e7edf5";
+  msg.style.background = isError ? "#fff5f5" : "#f4f7fb";
+  msg.textContent = text;
+}
+
+function token(){
+  const t = $("#admPwd").value.trim();
+  if(!t){ alert("Preencha a senha do administrador."); }
+  return t;
+}
+
+async function fetchJSON(url, opt={}){
+  const t = token(); if(!t) throw new Error("Sem token");
+  opt.headers = Object.assign({}, opt.headers || {}, { "x-admin-token": t });
+  const res = await fetch(url, opt);
+  const ctype = res.headers.get("content-type") || "";
+  if(!res.ok){
+    const body = ctype.includes("application/json") ? await res.json() : await res.text();
+    const detail = typeof body === "string" ? body : (body.detail || JSON.stringify(body));
+    throw new Error(detail);
+  }
+  return ctype.includes("application/json") ? res.json() : res.text();
+}
+
+async function upload(){
+  try{
+    const f = $("#file").files[0];
+    if(!f){ alert("Selecione um PDF."); return; }
+    if(!f.name.toLowerCase().endsWith(".pdf")){
+      alert("Envie apenas .pdf"); return;
     }
+    btnUpload.disabled = true;
+    show("⬆️ Enviando arquivo… aguarde (não feche a página).");
 
-    async function apiFetch(url, opts={}){
-      const token = (tokenEl.value||'').trim();
-      if(!token) throw new Error('Informe a senha do administrador.');
-      opts.headers = Object.assign({}, opts.headers||{}, {'X-Admin-Token': token});
-      const resp = await fetch(url, opts);
-      let data;
-      try { data = await resp.json(); }
-      catch {
-        const text = await resp.text();
-        throw new Error(`Erro inesperado do servidor (${resp.status}). ${text.slice(0,180)}`);
-      }
-      if(!resp.ok){
-        const msg = data?.detail || data?.message || `Falha HTTP ${resp.status}`;
-        throw new Error(msg);
-      }
-      return data;
+    const fd = new FormData(); fd.append("file", f);
+    const res = await fetchJSON("/upload_pdf", { method:"POST", body: fd });
+
+    if(res.ok){
+      show("✅ Upload recebido: " + res.filename + "\n🔄 Indexação em progresso… aguarde ~10 segundos antes de perguntar no chat.");
+      listPDFs(); // atualiza a lista
+    }else{
+      show("⚠️ Upload salvo mas indexação falhou: " + (res.index_error || "erro"), true);
     }
-
-    async function listFiles(){
-      setStatus('Carregando lista…');
-      try{
-        const data = await apiFetch('/list_pdfs');
-        renderList(data.files||[]);
-        setStatus(`Listados ${data.files?.length||0} arquivo(s).`, true);
-      }catch(e){
-        setStatus(e.message, false, true);
-      }
+  }catch(err){
+    // Quando o Render devolve HTML 502, o corpo começa com '<'
+    const text = String(err.message || err);
+    if(text.trim().startsWith("<")){
+      show("❌ Erro inesperado do servidor (502). Tente novamente com um PDF menor (<80–100MB).", true);
+    }else{
+      show("❌ " + text, true);
     }
+  }finally{
+    btnUpload.disabled = false;
+  }
+}
 
-    function renderList(files){
-      listEl.innerHTML = '';
-      if(!files.length){
-        listEl.innerHTML = `<div class="item"><div class="name">Nenhum PDF encontrado.</div></div>`;
-        return;
-      }
-      files.forEach(name=>{
-        const row = document.createElement('div');
-        row.className = 'item';
-        row.innerHTML = `
-          <div class="name">
-            <span>📄</span>
-            <div>
-              <div>${name}</div>
-              <div class="pill">PDF</div>
-            </div>
-          </div>
-          <div class="actions">
-            <button class="btn btn-secondary" data-ver>Ver</button>
-            <button class="btn btn-danger" data-del>Excluir</button>
-          </div>`;
-        row.querySelector('[data-del]').onclick = ()=>delFile(name);
-        row.querySelector('[data-ver]').onclick = ()=>viewFile(name);
-        listEl.appendChild(row);
-      });
+async function listPDFs(){
+  try{
+    list.innerHTML = `<div class="muted"><span class="spinner"></span> Carregando lista…</div>`;
+    const res = await fetchJSON("/list_pdfs");
+    if(!res.files || !res.files.length){
+      list.innerHTML = `<div class="muted">Nenhum PDF enviado.</div>`;
+      return;
     }
-
-    async function viewFile(name){
-      // seu backend não expõe os PDFs publicamente.
-      // tentaremos abrir /download_pdf?name=... (caso você adicione essa rota).
-      const url = `/download_pdf?name=${encodeURIComponent(name)}`;
-      try{
-        const head = await fetch(url, { method:'HEAD' });
-        if(head.ok){
-          window.open(url, '_blank');
-          return;
-        }
-        throw new Error();
-      }catch{
-        alert("Para visualizar/baixar, crie uma rota GET /download_pdf?name=... que leia o arquivo do UPLOAD_DIR e retorne o PDF com Content-Type: application/pdf. Se quiser, te envio o trecho pronto.");
-      }
-    }
-
-    async function delFile(name){
-      if(!confirm(`Excluir o arquivo "${name}"?`)) return;
-      setStatus('Excluindo…');
-      try{
-        await apiFetch(`/delete_pdf?name=${encodeURIComponent(name)}`, { method:'DELETE' });
-        setStatus('Arquivo excluído e índice atualizado.', true);
-        listFiles();
-      }catch(e){
-        setStatus(e.message, false, true);
-      }
-    }
-
-    async function uploadOne(file){
-      // envia com feedback de progresso
-      const form = new FormData();
-      form.append('file', file);
-
-      // fetch nativo não expõe onprogress; usamos xhr só para a barra
-      await new Promise((resolve,reject)=>{
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload_pdf');
-        xhr.setRequestHeader('X-Admin-Token', (tokenEl.value||'').trim());
-        xhr.upload.onprogress = (ev)=>{
-          if(ev.lengthComputable){
-            progEl.hidden = false;
-            progBar.style.width = `${(ev.loaded/ev.total)*100|0}%`;
-          }
-        };
-        xhr.onload = async ()=>{
-          progBar.style.width = '100%';
-          setTimeout(()=>{ progEl.hidden = true; progBar.style.width = '0%'; }, 400);
-
-          // tratar JSON/HTML corretamente
-          let data;
-          try{ data = JSON.parse(xhr.responseText); }
-          catch{
-            const text = xhr.responseText||'';
-            reject(new Error(`Erro inesperado do servidor (${xhr.status}). ${text.slice(0,180)}`));
-            return;
-          }
-
-          if(xhr.status<200 || xhr.status>=300 || data.ok!==true){
-            reject(new Error(data.detail || data.message || `Falha HTTP ${xhr.status}`));
-            return;
-          }
-          if(data.indexed){
-            resolve(`✅ ${file.name} — enviado e indexado`);
-          }else{
-            resolve(`⚠️ ${file.name} — salvo, porém não indexado (${data.index_error||'motivo desconhecido'})`);
-          }
-        };
-        xhr.onerror = ()=>reject(new Error('Falha de rede no upload.'));
-        xhr.send(form);
-      });
-    }
-
-    async function doUpload(){
-      const f = fileEl.files?.[0];
-      if(!f){ setStatus('Escolha um arquivo PDF.', false, true); return; }
-      setStatus('Enviando…');
-      try{
-        const msg = await uploadOne(f);
-        setStatus(msg, true);
-        fileEl.value = '';
-        listFiles();
-      }catch(e){
-        setStatus(e.message, false, true);
-      }
-    }
-
-    // eventos
-    $('#btnUpload').onclick = doUpload;
-    $('#btnList').onclick   = listFiles;
-
-    // carregar lista ao abrir a página (se o token já estiver preenchido via autofill)
-    window.addEventListener('load', ()=>{
-      if((tokenEl.value||'').trim()) listFiles();
+    list.innerHTML = "";
+    res.files.forEach(name=>{
+      const row = document.createElement("div");
+      row.className = "item";
+      row.innerHTML = `
+        <div class="name" title="${name}">📄 ${name}</div>
+        <div class="toolbar">
+          <button class="btn danger" data-name="${name}">Excluir</button>
+        </div>`;
+      row.querySelector(".danger").onclick = ()=>del(name);
+      list.appendChild(row);
     });
-  </script>
+  }catch(err){
+    list.innerHTML = `<div class="muted">Falha ao listar: ${err}</div>`;
+  }
+}
+
+async function del(name){
+  if(!confirm(`Excluir "${name}"?`)) return;
+  try{
+    await fetchJSON(`/delete_pdf?name=${encodeURIComponent(name)}`, { method:"DELETE" });
+    show("🗑️ Arquivo excluído: " + name);
+    listPDFs();
+  }catch(err){
+    show("❌ Falha ao excluir: " + err, true);
+  }
+}
+
+btnUpload.onclick = upload;
+btnRefresh.onclick = listPDFs;
+btnList.onclick = listPDFs;
+
+// carrega a lista quando abrir
+listPDFs();
+</script>
 </body>
 </html>
