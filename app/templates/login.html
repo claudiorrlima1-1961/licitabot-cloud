@@ -1,168 +1,186 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>LICITABOT — Assessoria de Licitações e Contratos</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LICITABOT — Licitações e Contratos</title>
+  <link rel="stylesheet" href="/static/style.css" />
   <style>
-    :root{
-      --bg:#f5f7fa; --card:#ffffff; --txt:#0b2942; --muted:#475569;
-      --btn:#0b3d5c; --ok:#166534; --err:#991b1b; --border:#cbd5e1;
-    }
-    html,body{height:100%;margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#1f2937}
-    .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px}
-    .card{width:100%;max-width:820px;background:var(--card);border-radius:16px;box-shadow:0 12px 28px rgba(0,0,0,.12);padding:24px}
-    .grid{display:grid;grid-template-columns:1fr;gap:20px}
-    @media (min-width:900px){ .grid{grid-template-columns: 1fr 1fr;} }
-
-    h1{margin:0 0 6px;color:var(--txt);font-size:22px}
-    .lead{margin:0 0 10px;color:var(--muted);font-size:14px;line-height:1.35}
-    .bullet{margin:4px 0 0;color:#334155;font-size:13px}
-    .panel{border:1px solid var(--border); border-radius:14px; padding:16px}
-
-    label{display:block; font-weight:600; margin-bottom:6px; color:#0b2942}
-    input, textarea, button{width:100%; box-sizing:border-box; font-size:15px}
-    input[type=password], input[type=text], textarea{
-      border:1px solid var(--border); border-radius:10px; padding:10px; background:#fff;
-    }
-    textarea{min-height:120px; resize:vertical}
-    button{
-      margin-top:10px; background:var(--btn); color:#fff; border:none; padding:12px;
-      border-radius:10px; font-weight:700; cursor:pointer;
-    }
-    button:hover{filter:brightness(1.05)}
-    .muted{color:var(--muted); font-size:12px}
-    .status{margin-top:10px; font-size:14px}
-    .ok{color:var(--ok)} .err{color:var(--err)}
-    .answer{white-space:pre-wrap; border:1px solid var(--border); border-radius:10px; padding:12px; background:#fff; min-height:90px}
-    footer{margin-top:14px; font-size:12px; color:#475569}
+    body{font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f6f8fb; color:#1c2635;}
+    .wrap{max-width:900px; margin:32px auto; padding:0 16px;}
+    .card{background:#fff; border-radius:20px; box-shadow:0 10px 24px rgba(2,18,33,.06); padding:28px;}
+    h1{margin:0 0 12px; font-size:32px}
+    .hint{color:#5b6b7b; font-size:14px}
+    .row{margin-top:16px}
+    input[type="password"], input[type="text"], textarea{width:100%; border-radius:12px; border:1px solid #d8e0ea; padding:12px; font-size:16px; outline:none}
+    textarea{min-height:110px; resize:vertical}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:10px; border:none; border-radius:14px; background:#0e3a5b; color:#fff; padding:14px 22px; font-weight:600; cursor:pointer}
+    .btn:disabled{opacity:.6; cursor:not-allowed}
+    .muted{color:#6a7a8b}
+    .pill{display:inline-block; background:#eef4ff; color:#0e3a5b; border-radius:999px; padding:4px 10px; font-size:12px}
+    .status{margin-top:14px; white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, monospace; background:#f4f7fb; border:1px solid #e7edf5; padding:10px 12px; border-radius:10px}
+    .topnav{display:flex; gap:12px; margin-bottom:16px}
+    .link{background:#e9f1ff; color:#143b63; padding:10px 14px; border-radius:12px; text-decoration:none; font-weight:600}
+    .a11y{font-size:13px; color:#2d3b4b}
+    .cite{border-left:4px solid #c7d6ea; padding:8px 12px; background:#f7fbff; margin-top:8px; border-radius:8px}
   </style>
 </head>
 <body>
   <div class="wrap">
+
+    <div class="topnav">
+      <a class="link" href="/">Chat</a>
+      <a class="link" href="/admin">Upload (Admin)</a>
+    </div>
+
     <div class="card">
-      <div class="grid">
-        <!-- Coluna 1: Apresentação -->
-        <div class="panel">
-          <h1>LICITABOT — Assessoria de Licitações e Contratos</h1>
-          <p class="lead"><strong>Não é apenas um chatbot.</strong> É anos de <strong>experiência</strong> em licitações e contratos aplicados a uma <strong>IA especializada</strong>.</p>
-          <p class="bullet">• Base especializada — usamos documentos reais da área, não conteúdo genérico.</p>
-          <p class="bullet">• Conhecimento prático — anos de experiência aplicada no setor público.</p>
-          <p class="bullet">• Respostas contextuais — entende nuances de contratos e licitações.</p>
-          <p class="bullet">• Fontes citadas (no modo admin) — transparência sobre a origem.</p>
-          <footer>
-            Isto não substitui consulta/parecer jurídico formal.
-          </footer>
-        </div>
+      <h1>LICITABOT — <span class="pill">Assessoria de Licitações e Contratos</span></h1>
+      <p class="hint">
+        Não é apenas um chatbot. É uma ferramenta de pesquisa construída a partir de anos de experiência prática em licitações e contratos,
+        aplicada a uma IA <b>especializada</b>.
+      </p>
 
-        <!-- Coluna 2: Acesso + Perguntas -->
-        <div class="panel">
-          <!-- BLOCO DE LOGIN -->
-          <div id="loginBox">
-            <label for="password">Senha de acesso</label>
-            <input id="password" type="password" placeholder="Digite a senha fornecida após a assinatura"/>
-            <button id="btnLogin" onclick="doLogin()">Entrar</button>
-            <div id="loginStatus" class="status"></div>
-          </div>
-
-          <!-- BLOCO DE PERGUNTAS (inicia oculto) -->
-          <div id="qaBox" style="display:none">
-            <label for="question">Faça perguntas específicas sobre licitações e contratos</label>
-            <textarea id="question" placeholder="Ex.: Quando o uso de conta vinculada é obrigatório? Como ficam as garantias no RDC?"></textarea>
-            <button id="btnAsk" onclick="doAsk()">Perguntar</button>
-            <div id="askStatus" class="status"></div>
-
-            <div style="margin-top:12px">
-              <label>Resposta</label>
-              <div id="answer" class="answer"></div>
-            </div>
-
-            <footer>
-              O assistente usa uma base especializada e prática, construída a partir de anos de trabalho na área por Cláudio Lima.
-            </footer>
-          </div>
+      <!-- LOGIN -->
+      <div class="row">
+        <label class="muted">Senha de acesso (assintantes)</label>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap">
+          <input type="password" id="pwd" placeholder="Senha de acesso" style="flex:1 1 260px" />
+          <button class="btn" id="btnLogin">Entrar</button>
+          <span id="loginState" class="a11y muted">Você ainda não está logado.</span>
         </div>
       </div>
+
+      <!-- PERGUNTA -->
+      <div class="row">
+        <h3>Faça perguntas específicas sobre licitações e contratos</h3>
+        <input type="text" id="q" placeholder="Ex.: O que determina a conta vinculada?" disabled />
+      </div>
+      <div class="row">
+        <button class="btn" id="btnAsk" disabled>Perguntar</button>
+      </div>
+
+      <!-- RESPOSTA -->
+      <div class="row">
+        <label class="muted">Resposta</label>
+        <textarea id="ans" readonly placeholder="A resposta aparecerá aqui…"></textarea>
+        <div id="cites"></div>
+      </div>
+
+      <!-- AVANÇADO (ADMIN) -->
+      <div class="row">
+        <details>
+          <summary class="a11y">Avançado (opcional) — ver citações | enviar cabeçalho x-admin-token</summary>
+          <div class="row">
+            <label class="muted">Admin token (x-admin-token) — opcional</label>
+            <input type="text" id="adminToken" placeholder="Cole aqui o ADMIN_UPLOAD_TOKEN para ver citações das fontes" />
+          </div>
+        </details>
+      </div>
+
+      <div id="msg" class="status" style="display:none"></div>
     </div>
   </div>
 
 <script>
-  // UI helpers
-  const loginBox   = document.getElementById('loginBox');
-  const qaBox      = document.getElementById('qaBox');
-  const loginStat  = document.getElementById('loginStatus');
-  const askStat    = document.getElementById('askStatus');
-  const answerEl   = document.getElementById('answer');
+const $ = s => document.querySelector(s);
+const msg = $("#msg");
+const ans = $("#ans");
+const cites = $("#cites");
+const q = $("#q");
+const btnAsk = $("#btnAsk");
+const btnLogin = $("#btnLogin");
+const loginState = $("#loginState");
 
-  async function doLogin(){
-    const pwd = (document.getElementById('password').value || '').trim();
-    loginStat.innerHTML = '';
-    if(!pwd){
-      loginStat.innerHTML = '<span class="err">Informe a senha.</span>';
+function show(text, isError=false){
+  msg.style.display = "block";
+  msg.style.borderColor = isError ? "#ffd5d5" : "#e7edf5";
+  msg.style.background = isError ? "#fff5f5" : "#f4f7fb";
+  msg.textContent = text;
+}
+
+async function doLogin(){
+  try{
+    msg.style.display = "none";
+    const pwd = $("#pwd").value.trim();
+    if(!pwd){ alert("Digite a senha de acesso."); return; }
+    btnLogin.disabled = true;
+    const res = await fetch("/login", {
+      method:"POST",
+      headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ password: pwd })
+    });
+    if(!res.ok){
+      const j = await res.json().catch(()=>({error:"Falha no login"}));
+      show("❌ " + (j.error || "Senha incorreta."), true);
+      loginState.textContent = "Você ainda não está logado.";
       return;
     }
-    try{
-      const r = await fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({password: pwd})
-      });
-      if(!r.ok){
-        const j = await r.json().catch(()=>({}));
-        loginStat.innerHTML = '<span class="err">'+ (j.error || 'Senha incorreta.') +'</span>';
-        return;
-      }
-      // Sucesso: mostra perguntas
-      loginStat.innerHTML = '<span class="ok">Acesso liberado.</span>';
-      loginBox.style.display = 'none';
-      qaBox.style.display = 'block';
-      // foco no campo pergunta
-      setTimeout(()=>document.getElementById('question').focus(), 50);
-    }catch(e){
-      loginStat.innerHTML = '<span class="err">Falha de conexão.</span>';
-    }
+    show("✅ Login efetuado. Você pode perguntar.");
+    loginState.textContent = "Logado. (o acesso expira automaticamente após alguns dias)";
+    q.disabled = false; btnAsk.disabled = false;
+    q.focus();
+  }catch(e){
+    show("❌ Erro de rede: " + e, true);
+  }finally{
+    btnLogin.disabled = false;
   }
+}
 
-  async function doAsk(){
-    const q = (document.getElementById('question').value || '').trim();
-    askStat.innerHTML = '';
-    answerEl.textContent = '';
-    if(!q){
-      askStat.innerHTML = '<span class="err">Escreva sua pergunta.</span>';
+async function ask(){
+  try{
+    msg.style.display = "none";
+    cites.innerHTML = "";
+    ans.value = "";
+    const question = q.value.trim();
+    if(!question){ alert("Escreva sua pergunta."); return; }
+    btnAsk.disabled = true;
+
+    const headers = { "content-type":"application/json" };
+    const adm = ($("#adminToken").value || "").trim();
+    if(adm){ headers["x-admin-token"] = adm; }
+
+    const res = await fetch("/ask", {
+      method:"POST",
+      headers,
+      body: JSON.stringify({ question })
+    });
+
+    if(!res.ok){
+      const t = await res.text();
+      if(t.trim().startsWith("<")){ // HTML (ex.: 502)
+        show("❌ Erro do servidor ao consultar. Tente novamente em instantes.", true);
+      }else{
+        show("❌ Falha: " + t, true);
+      }
       return;
     }
-    askStat.innerHTML = 'Consultando a base…';
 
-    try{
-      // Atenção: o cookie de sessão (definido no /login) faz a autenticação
-      const r = await fetch('/ask', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({question: q})
+    const data = await res.json();
+    ans.value = data.answer || "(sem resposta)";
+
+    // Exibe citações quando admin token é enviado e o backend retorna
+    if(Array.isArray(data.citations)){
+      const frag = document.createDocumentFragment();
+      data.citations.forEach(c=>{
+        const div = document.createElement("div");
+        div.className = "cite";
+        div.innerHTML = `<b>Fonte:</b> ${c.source} — parte ${c.chunk}<br><div class="muted">${(c.excerpt||"").replaceAll("<","&lt;")}</div>`;
+        frag.appendChild(div);
       });
-
-      const j = await r.json().catch(()=>({answer:'Erro ao interpretar resposta.'}));
-      if(!r.ok){
-        askStat.innerHTML = '<span class="err">Acesso expirado. Faça login novamente.</span>';
-        // volta o login se perdeu o cookie
-        loginBox.style.display = 'block';
-        qaBox.style.display = 'none';
-        return;
-      }
-      askStat.innerHTML = '';
-      answerEl.textContent = j.answer || '(Sem conteúdo)';
-    }catch(e){
-      askStat.innerHTML = '<span class="err">Erro de conexão.</span>';
+      cites.appendChild(frag);
     }
+  }catch(e){
+    show("❌ Erro de rede: " + e, true);
+  }finally{
+    btnAsk.disabled = false;
   }
+}
 
-  // Atalhos de teclado
-  document.getElementById('password').addEventListener('keydown', (ev)=>{
-    if(ev.key === 'Enter'){ doLogin(); }
-  });
-  document.getElementById('question').addEventListener('keydown', (ev)=>{
-    if((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'enter'){ doAsk(); }
-  });
+btnLogin.onclick = doLogin;
+btnAsk.onclick = ask;
+// Enter para login ou pergunta
+$("#pwd").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+q.addEventListener("keydown", e=>{ if(e.key==="Enter" && !e.shiftKey) { e.preventDefault(); ask(); }});
 </script>
 </body>
 </html>
