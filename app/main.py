@@ -4,46 +4,52 @@ import time
 import hmac
 import hashlib
 import logging
-import threading
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import (
-    FastAPI, Request, UploadFile, File, Header, Depends, Response, HTTPException, APIRouter
+    FastAPI, Request, UploadFile, File, Header, Depends, Response,
+    HTTPException, APIRouter, Query
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-# RAG
+# ---- RAG ---------------------------------------------------------------
 from .rag_store import ingest_paths, search, context_from_hits
 from .core import answer
 
+# -----------------------------------------------------------------------
 app = FastAPI(title="Licitabot — Cloud")
 log = logging.getLogger("licitabot")
 log.setLevel(logging.INFO)
 
+# ---------------- Localização robusta dos diretórios -------------------
 def _choose_dir(candidates):
     for p in candidates:
         if os.path.isdir(p):
             return p
     return candidates[0]
 
-TEMPLATES_DIR = _choose_dir(["templates", "app/templates"])
-STATIC_DIR    = _choose_dir(["static", "app/static"])
+TEMPLATES_DIR = _choose_dir(["templates", "app/templates", "aplicativo/templates"])
+STATIC_DIR    = _choose_dir(["static", "app/static", "aplicativo/static", "aplicativo/estatico"])
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-# ------------------------------------------------------------------
+# -------------------------- Variáveis ---------------------------------
 ACCESS_PASSWORD    = (os.getenv("ACCESS_PASSWORD", "1234") or "1234").strip()
 ADMIN_UPLOAD_TOKEN = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN") or "admin123").strip()
 SECRET_KEY         = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
 
-DEFAULT_UPLOAD_DIR  = "/data/uploaded_pdfs"
-FALLBACK_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
+# Diretórios persistentes
+DEFAULT_UPLOAD_DIR   = "/data/uploaded_pdfs"
+FALLBACK_UPLOAD_DIR  = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", DEFAULT_UPLOAD_DIR if os.path.isdir("/data") else FALLBACK_UPLOAD_DIR)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+CHROMA_DIR = os.getenv("CHROMA_DIR", "/data/chroma")
+
+# --------------------------- Sessão simples ----------------------------
 SESSION_COOKIE = "licita_sess"
 SESSION_TTL    = 60 * 60 * 24 * 7  # 7 dias
 
@@ -70,6 +76,10 @@ def _require_auth(request: Request):
         raise HTTPException(status_code=401, detail="Acesso não autorizado.")
     return True
 
+def _is_admin(x_admin_token: Optional[str], token_query: Optional[str]) -> bool:
+    token = (x_admin_token or token_query or "").strip()
+    return token == ADMIN_UPLOAD_TOKEN
+
 # --------------------------------- Saúde -------------------------------------
 @app.get("/health")
 def health():
@@ -83,6 +93,8 @@ def health():
         "templates_dir": TEMPLATES_DIR,
         "static_dir": STATIC_DIR,
         "upload_dir": UPLOAD_DIR,
+        "chroma_dir": CHROMA_DIR,
+        "files_in_upload": [f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")] if os.path.isdir(UPLOAD_DIR) else [],
     }
 
 # ------------------------ PÁGINA DO USUÁRIO ----------------------------------
@@ -101,7 +113,13 @@ async def login(payload: dict, response: Response):
     return resp
 
 @app.post("/ask")
-async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: Optional[str] = Header(None)):
+async def ask(
+    payload: dict,
+    ok: bool = Depends(_require_auth),
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+    debug: Optional[int] = Query(0),
+):
     q = (payload or {}).get("question", "").strip()
     if not q:
         return {"answer": "Por favor, escreva sua pergunta."}
@@ -117,13 +135,14 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
         log.exception("Falha ao consultar modelo")
         ans = f"Erro ao consultar o modelo: {e}"
 
-    if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
+    if debug or _is_admin(x_admin_token, token):
         return {
             "answer": ans,
             "citations": [
-                {"source": md.get("source"), "chunk": md.get("chunk"), "excerpt": doc[:280]}
+                {"source": md.get("source"), "chunk": md.get("chunk"), "excerpt": doc[:320]}
                 for (doc, md) in hits
-            ]
+            ],
+            "used_context": ctx[:1200]
         }
     return {"answer": ans}
 
@@ -138,30 +157,17 @@ async def admin_page(request: Request):
 def upload_alias():
     return RedirectResponse(url="/admin", status_code=307)
 
-# ========= Ajustes contra 502 + indexação em background =========
-MAX_SIZE_MB = int(os.getenv("MAX_UPLOAD_MB", "80"))  # ajuste se quiser
-
-def _index_async(path: str):
-    """Roda a indexação sem travar a resposta HTTP (evita 502/timeout)."""
-    try:
-        ingest_paths([path])
-        log.info(f"✅ Indexação concluída: {path}")
-    except Exception as e:
-        log.exception(f"Falha ao indexar {path}: {e}")
-
 @router.post("/upload_pdf")
 async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
 ):
-    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+    if not _is_admin(x_admin_token, token):
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Envie apenas arquivos .pdf")
-
-    # Limite de tamanho (evita 502 por timeout/memória)
-    if hasattr(file, "size") and file.size and file.size > MAX_SIZE_MB * 1024 * 1024:
-        raise HTTPException(status_code=413, detail=f"Arquivo muito grande (> {MAX_SIZE_MB} MB)")
 
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     destino = os.path.join(UPLOAD_DIR, file.filename)
@@ -177,22 +183,36 @@ async def upload_pdf(
         log.exception("Falha ao salvar PDF")
         raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
 
-    # dispara a indexação em segundo plano (evita 502)
-    threading.Thread(target=_index_async, args=(destino,), daemon=True).start()
+    # Indexação do arquivo recém-enviado
+    try:
+        ingest_paths([destino])
+        indexed = True
+        index_error = None
+    except Exception as e:
+        log.exception("Falha ao indexar PDF")
+        indexed = False
+        index_error = f"{type(e).__name__}: {e}"
 
-    return {"ok": True, "filename": file.filename, "indexed": "em_progresso"}
+    return {"ok": True, "filename": file.filename, "indexed": indexed, "index_error": index_error}
 
 @router.get("/list_pdfs")
-async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
-    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+async def list_pdfs(
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+):
+    if not _is_admin(x_admin_token, token):
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     itens = sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")])
     return {"files": itens}
 
 @router.delete("/delete_pdf")
-async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
-    if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
+async def delete_pdf(
+    name: str,
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+):
+    if not _is_admin(x_admin_token, token):
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     alvo = os.path.join(UPLOAD_DIR, name)
@@ -200,18 +220,73 @@ async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
     try:
         os.remove(alvo)
+        try:
+            # reindexa o que sobrou
+            paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
+            if paths:
+                ingest_paths(paths)
+        except Exception:
+            pass
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Falha ao excluir: {e}")
     return {"ok": True, "deleted": name}
 
+# --------- NOVOS ENDPOINTS DE DIAGNÓSTICO ------------------------------------
+
+@router.post("/admin/reindex")
+async def admin_reindex(
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+):
+    if not _is_admin(x_admin_token, token):
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    if not os.path.isdir(UPLOAD_DIR):
+        raise HTTPException(status_code=500, detail="UPLOAD_DIR inexistente.")
+    paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
+    if not paths:
+        return {"ok": True, "ingested": 0, "detail": "Sem PDFs no diretório."}
+    n = ingest_paths(paths)
+    return {"ok": True, "ingested": n, "files": [os.path.basename(p) for p in paths]}
+
+@router.get("/_debug/vars")
+async def debug_vars(
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+):
+    if not _is_admin(x_admin_token, token):
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    return {
+        "templates_dir": TEMPLATES_DIR,
+        "static_dir": STATIC_DIR,
+        "upload_dir": UPLOAD_DIR,
+        "chroma_dir": CHROMA_DIR,
+        "upload_exists": os.path.isdir(UPLOAD_DIR),
+        "files_in_upload": sorted([f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]) if os.path.isdir(UPLOAD_DIR) else [],
+    }
+
+@router.get("/_debug/search")
+async def debug_search(
+    q: str = Query(..., description="Consulta"),
+    x_admin_token: Optional[str] = Header(None),
+    token: Optional[str] = Query(None),
+    k: int = Query(4),
+):
+    if not _is_admin(x_admin_token, token):
+        raise HTTPException(status_code=401, detail="Token de administrador inválido.")
+    hits = search(q, k=k)
+    return {
+        "query": q,
+        "k": k,
+        "results": [
+            {"source": md.get("source"), "chunk": md.get("chunk"), "excerpt": doc[:380]}
+            for (doc, md) in hits
+        ],
+        "count": len(hits),
+    }
+
 app.include_router(router)
 
-@app.get("/check_token", response_class=PlainTextResponse)
-async def check_token(x_admin_token: Optional[str] = Header(None)):
-    if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
-        return PlainTextResponse("✅ Token válido", status_code=200)
-    return PlainTextResponse("❌ Token inválido", status_code=401)
-
+# ----------------------------- UVICORN ---------------------------------------
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 10000))
