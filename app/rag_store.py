@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import os, uuid, json
-from typing import List, Tuple
+import os, uuid, json, time
+from typing import List, Tuple, Optional
 from pypdf import PdfReader
 from tiktoken import get_encoding
 
@@ -8,93 +8,129 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
+# ---------- Config básica ----------
 ENC = get_encoding("cl100k_base")
 
-# -------------------- Diretório persistente do índice ------------------------
+# Diretório persistente do índice (compatível com Render)
 _DEF_DATA = "/data/chroma" if os.path.isdir("/data") else os.path.join(os.path.dirname(__file__), "chroma")
 PERSIST_DIR = os.getenv("CHROMA_DIR", _DEF_DATA)
 os.makedirs(PERSIST_DIR, exist_ok=True)
 
-# -------------------- Seleção dinâmica de Embeddings -------------------------
-# Ordem de preferência:
-# 1) Azure OpenAI (AZURE_OPENAI_* vars)
-# 2) OpenAI (OPENAI_API_KEY)
-# 3) SentenceTransformers (se estiver instalado)
-#
-# A interface esperada por Chroma é uma função/objeto com método __call__(self, texts: List[str]) -> List[List[float]]
-EmbeddingFn = None
-EMB_DESC = ""
-
+# ---------- Seleção de Embeddings (Render-friendly) ----------
+# Preferência: Azure OpenAI -> OpenAI -> (opcional) SentenceTransformers se já existir
 def _azure_embedder():
-    """Cria um embedder para Azure OpenAI via requests (sem depender de SDK)."""
-    import requests
-
+    import requests  # nativo no Render; sem SDK pesado
     endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
     api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
-    deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "")  # ex: 'text-embedding-3-small'
-
+    deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "")
     if not (endpoint and api_key and deployment):
         return None
 
     class AzureOpenAIEmbedding:
         def __call__(self, texts: List[str]) -> List[List[float]]:
             url = f"{endpoint}/openai/deployments/{deployment}/embeddings?api-version=2023-05-15"
-            headers = {
-                "Content-Type": "application/json",
-                "api-key": api_key,
-            }
-            data = {"input": texts}
-            r = requests.post(url, headers=headers, data=json.dumps(data), timeout=60)
+            headers = {"Content-Type": "application/json", "api-key": api_key}
+            r = requests.post(url, headers=headers, data=json.dumps({"input": texts}), timeout=60)
             r.raise_for_status()
-            out = r.json()
-            # compat: alguns retornos usam 'data' com dicts contendo 'embedding'
-            return [item["embedding"] for item in out["data"]]
-
+            data = r.json()
+            return [item["embedding"] for item in data["data"]]
+    print("[EMB] Usando Azure OpenAI embeddings")
     return AzureOpenAIEmbedding()
 
 def _openai_embedder():
-    """Cria o embedder nativo do Chroma para OpenAI, se OPENAI_API_KEY existir."""
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         return None
     model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    print("[EMB] Usando OpenAI embeddings")
     return OpenAIEmbeddingFunction(api_key=api_key, model_name=model)
 
-def _sentence_transformers_embedder():
-    """Usa sentence-transformers apenas se já estiver instalado (sem downloads pesados)."""
+def _st_embedder():
     try:
         from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
-    except Exception:
-        return None
-    model = os.getenv("ST_MODEL", "all-MiniLM-L6-v2")
-    try:
+        model = os.getenv("ST_MODEL", "all-MiniLM-L6-v2")
+        print("[EMB] Usando SentenceTransformers (se modelo já existir no filesystem)")
         return SentenceTransformerEmbeddingFunction(model_name=model)
     except Exception:
-        # se o modelo não estiver disponível localmente, evitar baixar no Render
         return None
 
-# Resolver embedder
-EmbeddingFn = _azure_embedder()
-EMB_DESC = "Azure OpenAI" if EmbeddingFn else ""
-
-if EmbeddingFn is None:
-    EmbeddingFn = _openai_embedder()
-    EMB_DESC = "OpenAI" if EmbeddingFn else EMB_DESC
-
-if EmbeddingFn is None:
-    EmbeddingFn = _sentence_transformers_embedder()
-    EMB_DESC = "SentenceTransformers" if EmbeddingFn else EMB_DESC
-
+EmbeddingFn = _azure_embedder() or _openai_embedder() or _st_embedder()
 if EmbeddingFn is None:
     raise RuntimeError(
-        "Nenhuma fonte de embeddings encontrada.\n"
-        "Configure uma das opções:\n"
-        "  - Azure OpenAI: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_EMBEDDING_DEPLOYMENT\n"
-        "  - OpenAI: OPENAI_API_KEY (opcional OPENAI_EMBEDDING_MODEL)\n"
-        "  - Ou instale sentence-transformers e disponibilize o modelo localmente."
+        "Nenhuma fonte de embeddings disponível. Configure:\n"
+        "- Azure OpenAI: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_EMBEDDING_DEPLOYMENT\n"
+        "- ou OPENAI_API_KEY (e opcional OPENAI_EMBEDDING_MODEL)\n"
+        "- (opcional) SentenceTransformers se o modelo já estiver no container."
     )
 
-# -------------------- Utilidades ---------------------------------------------
+# ---------- OCR opcional ----------
+def _ocr_with_azure_read(pdf_path: str) -> Optional[str]:
+    """OCR via Azure Vision Read (v3.2). Requer AZURE_VISION_ENDPOINT e AZURE_VISION_KEY."""
+    endpoint = os.getenv("AZURE_VISION_ENDPOINT", "").rstrip("/")
+    key = os.getenv("AZURE_VISION_KEY", "")
+    if not (endpoint and key):
+        return None
+
+    import requests
+
+    analyze_url = f"{endpoint}/vision/v3.2/read/analyze"
+    headers = {"Ocp-Apim-Subscription-Key": key, "Content-Type": "application/pdf"}
+    try:
+        with open(pdf_path, "rb") as f:
+            r = requests.post(analyze_url, headers=headers, data=f.read(), timeout=60)
+        if r.status_code not in (202, 200):
+            print(f"[OCR-AZURE] Falha ao enviar PDF: {r.status_code} {r.text[:180]}")
+            return None
+        op_location = r.headers.get("Operation-Location")
+        if not op_location:
+            print("[OCR-AZURE] Operation-Location ausente")
+            return None
+
+        # poll até concluir
+        for _ in range(40):
+            time.sleep(1.0)
+            rr = requests.get(op_location, headers={"Ocp-Apim-Subscription-Key": key}, timeout=30)
+            rr.raise_for_status()
+            data = rr.json()
+            status = data.get("status") or data.get("statusCode")
+            if (data.get("status") == "succeeded") or (isinstance(status, str) and status.lower() == "succeeded"):
+                # Formato v3.2:
+                read_res = data.get("analyzeResult", {}).get("readResults", [])
+                parts = []
+                for page in read_res:
+                    for line in page.get("lines", []):
+                        parts.append(line.get("text", ""))
+                text = "\n".join(parts).strip()
+                print(f"[OCR-AZURE] OCR concluído ({len(text)} chars)")
+                return text
+            if (data.get("status") == "failed") or (isinstance(status, str) and status.lower() == "failed"):
+                print("[OCR-AZURE] OCR retornou failed")
+                return None
+        print("[OCR-AZURE] Timeout aguardando OCR")
+        return None
+    except Exception as e:
+        print(f"[OCR-AZURE] Erro: {type(e).__name__}: {e}")
+        return None
+
+def _extract_with_pymupdf(pdf_path: str) -> Optional[str]:
+    """Fallback para PyMuPDF (se instalado). NÃO faz OCR, mas extrai texto melhor que pypdf."""
+    try:
+        import fitz  # PyMuPDF
+    except Exception:
+        return None
+    try:
+        doc = fitz.open(pdf_path)
+        parts = []
+        for pg in doc:
+            parts.append(pg.get_text().strip())
+        text = "\n".join([p for p in parts if p]).strip()
+        print(f"[PyMuPDF] Extraído {len(text)} chars")
+        return text or None
+    except Exception as e:
+        print(f"[PyMuPDF] Erro: {e}")
+        return None
+
+# ---------- Utilidades ----------
 def _chunks(text: str, max_tokens: int = 650, overlap: int = 60):
     tokens = ENC.encode(text or "")
     start = 0
@@ -104,30 +140,38 @@ def _chunks(text: str, max_tokens: int = 650, overlap: int = 60):
         start = end - overlap if end - overlap > 0 else end
 
 def load_pdf_text(path: str) -> str:
-    """Extrai texto de PDF; ignora PDFs-imagem (escaneados)."""
+    """Extrai texto de PDF. Tenta pypdf -> PyMuPDF -> Azure OCR (se sem texto)."""
+    # 1) pypdf (rápido)
     try:
         reader = PdfReader(path)
+        total = len(reader.pages)
+        sem_texto = 0
+        partes = []
+        for page in reader.pages:
+            txt = (page.extract_text() or "").strip()
+            if not txt:
+                sem_texto += 1
+            partes.append(txt)
+        texto = "\n".join([p for p in partes if p]).strip()
+        if texto and not (total > 0 and sem_texto / total >= 0.8):
+            print(f"[pypdf] Extraído {len(texto)} chars | {sem_texto}/{total} páginas sem texto")
+            return texto
+        print(f"[pypdf] Parece imagem ({sem_texto}/{total} sem texto); tentando fallbacks…")
     except Exception as e:
-        print(f"[ERRO] Falha ao abrir {path}: {e}")
-        return ""
+        print(f"[pypdf] Falha ao abrir {path}: {e}")
 
-    total = len(reader.pages)
-    sem_texto = 0
-    partes = []
+    # 2) PyMuPDF (se disponível)
+    text2 = _extract_with_pymupdf(path)
+    if text2 and len(text2) >= 40:  # texto mínimo para valer
+        return text2
 
-    for page in reader.pages:
-        txt = (page.extract_text() or "").strip()
-        if not txt:
-            sem_texto += 1
-        partes.append(txt)
+    # 3) Azure OCR (se configurado)
+    text3 = _ocr_with_azure_read(path)
+    if text3 and len(text3) >= 20:
+        return text3
 
-    if total > 0 and sem_texto / total >= 0.8:
-        print(f"[AVISO] {os.path.basename(path)} parece ser PDF de imagem ({sem_texto}/{total} sem texto).")
-        return ""
-
-    texto = "\n".join([p for p in partes if p])
-    print(f"[OK] Extraído texto de {os.path.basename(path)} ({sem_texto}/{total} páginas sem texto).")
-    return texto
+    print(f"[AVISO] {os.path.basename(path)} sem texto utilizável (precisa de OCR).")
+    return ""
 
 def _get_collection():
     client = chromadb.PersistentClient(path=PERSIST_DIR, settings=Settings(allow_reset=False))
@@ -136,10 +180,10 @@ def _get_collection():
         embedding_function=EmbeddingFn,
         metadata={"hnsw:space": "cosine"}
     )
-    print(f"[CHROMA] Collection pronta em {PERSIST_DIR} | Embeddings: {EMB_DESC}")
+    print(f"[CHROMA] Collection pronta em {PERSIST_DIR}")
     return col
 
-# -------------------- API pública --------------------------------------------
+# ---------- API pública ----------
 def ingest_paths(paths: List[str]) -> int:
     """Indexa PDFs válidos (com texto). Retorna número de chunks adicionados."""
     col = _get_collection()
@@ -156,17 +200,16 @@ def ingest_paths(paths: List[str]) -> int:
 
         base = os.path.basename(p)
         for i, ch in enumerate(_chunks(raw)):
-            # ID determinístico evita duplicar caso o mesmo arquivo seja ingerido novamente
-            stable_id = f"{base}::part-{i}"
+            stable_id = f"{base}::part-{i}"              # evita duplicação
             ids.append(stable_id)
             docs.append(ch)
             meta.append({"source": base, "chunk": i, "path": os.path.abspath(p)})
 
     if not ids:
-        print("[INDEX] Nenhum texto adicionado — possivelmente PDFs-imagem ou vazios.")
+        print("[INDEX] Nenhum texto adicionado (talvez PDFs-imagem sem OCR).")
         return 0
 
-    # remove IDs se já existirem (idempotente) e adiciona novamente
+    # Reindex idempotente
     try:
         col.delete(ids=ids)
     except Exception:
@@ -183,7 +226,7 @@ def search(query: str, k: int = 4) -> List[Tuple[str, dict]]:
     if res and res.get("documents"):
         for doc, md in zip(res["documents"][0], res["metadatas"][0]):
             hits.append((doc, md))
-    print(f"[SEARCH] q='{query}' -> {len(hits)} hit(s).")
+    print(f"[PESQUISA] q='{query}' -> {len(hits)} hit(s).")
     return hits
 
 def context_from_hits(hits: List[Tuple[str, dict]]) -> str:
