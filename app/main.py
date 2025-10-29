@@ -32,7 +32,7 @@ def _choose_dir(candidates):
 
 # Se você usa Dockerfile copiando para /templates e /static, estes existirão:
 TEMPLATES_DIR = _choose_dir(["templates", "app/templates", "aplicativo/templates"])
-STATIC_DIR    = _choose_dir(["static",    "app/static",    "aplicativo/estatico", "aplicativo/static"])
+STATIC_DIR    = _choose_dir(["static", "app/static", "aplicativo/estatico", "aplicativo/static"])
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
@@ -43,8 +43,6 @@ ADMIN_UPLOAD_TOKEN = (os.getenv("ADMIN_UPLOAD_TOKEN") or os.getenv("ADMIN_TOKEN"
 SECRET_KEY         = (os.getenv("SECRET_KEY", "troque-este-segredo") or "troque-este-segredo").strip()
 
 # Diretório PERSISTENTE para os PDFs:
-# - Em produção (Render), use um Disk montado em /data.
-# - Em desenvolvimento local, será criado em ./app/uploaded_pdfs.
 DEFAULT_UPLOAD_DIR = "/data/uploaded_pdfs"
 FALLBACK_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploaded_pdfs")
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", DEFAULT_UPLOAD_DIR if os.path.isdir("/data") else FALLBACK_UPLOAD_DIR)
@@ -115,7 +113,14 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
     if not q:
         return {"answer": "Por favor, escreva sua pergunta."}
 
-    hits = search(q, k=4)
+    try:
+        hits = search(q, k=4)
+        n_hits = len(hits) if hits else 0
+        log.info(f"[SEARCH] Pergunta: '{q}' | {n_hits} resultados encontrados.")
+    except Exception as e:
+        log.exception("[SEARCH] Erro na busca")
+        return {"answer": f"Erro na busca: {e}"}
+
     if not hits:
         return {"answer": "Não encontrei essa informação na base de documentos."}
 
@@ -126,7 +131,6 @@ async def ask(payload: dict, ok: bool = Depends(_require_auth), x_admin_token: O
         log.exception("Falha ao consultar modelo")
         ans = f"Erro ao consultar o modelo: {e}"
 
-    # Se mandar cabeçalho de admin, devolve citações (útil p/ auditoria)
     if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
         return {
             "answer": ans,
@@ -145,17 +149,16 @@ async def admin_page(request: Request):
     """Interface do administrador: upload, listagem e exclusão."""
     return templates.TemplateResponse("admin.html", {"request": request})
 
-# Alias opcional: /upload → /admin
 @router.get("/upload", include_in_schema=False)
 def upload_alias():
     return RedirectResponse(url="/admin", status_code=307)
 
+# ------------------------ UPLOAD COM CONFIRMAÇÃO DE INDEXAÇÃO ----------------
 @router.post("/upload_pdf")
 async def upload_pdf(
     file: UploadFile = File(...),
     x_admin_token: Optional[str] = Header(None),
 ):
-    # Autorização
     if not x_admin_token or x_admin_token.strip() != ADMIN_UPLOAD_TOKEN:
         raise HTTPException(status_code=401, detail="Token de administrador inválido.")
 
@@ -165,7 +168,6 @@ async def upload_pdf(
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     destino = os.path.join(UPLOAD_DIR, file.filename)
 
-    # Grava em chunks estáveis
     try:
         with open(destino, "wb") as buffer:
             while True:
@@ -173,19 +175,29 @@ async def upload_pdf(
                 if not chunk:
                     break
                 buffer.write(chunk)
+        log.info(f"[UPLOAD] Arquivo salvo em: {destino}")
     except Exception as e:
-        log.exception("Falha ao salvar PDF")
-        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {type(e).__name__} - {e}")
+        log.exception("[UPLOAD] Falha ao salvar PDF")
+        raise HTTPException(status_code=500, detail=f"Falha ao salvar PDF: {e}")
 
-    # Indexa no RAG
     try:
         ingest_paths([destino])
+        log.info(f"[INGEST] Indexação concluída com sucesso: {file.filename}")
+        return {
+            "ok": True,
+            "filename": file.filename,
+            "indexed": True,
+            "message": f"✅ Arquivo '{file.filename}' enviado e indexado com sucesso!"
+        }
     except Exception as e:
-        log.exception("Falha ao indexar PDF")
-        # não derruba o upload; apenas informa o erro de indexação
-        return {"ok": True, "filename": file.filename, "indexed": False, "index_error": str(e)}
-
-    return {"ok": True, "filename": file.filename, "indexed": True}
+        log.exception("[INGEST] Falha na indexação do PDF")
+        return {
+            "ok": True,
+            "filename": file.filename,
+            "indexed": False,
+            "message": f"⚠️ Arquivo '{file.filename}' salvo, mas não foi indexado.",
+            "index_error": str(e)
+        }
 
 @router.get("/list_pdfs")
 async def list_pdfs(x_admin_token: Optional[str] = Header(None)):
@@ -205,13 +217,10 @@ async def delete_pdf(name: str, x_admin_token: Optional[str] = Header(None)):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado.")
     try:
         os.remove(alvo)
-        # Reindexação simples do diretório restante (opcional)
-        try:
-            paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
-            if paths:
-                ingest_paths(paths)
-        except Exception:
-            pass
+        log.info(f"[DELETE] Arquivo removido: {name}")
+        paths = [os.path.join(UPLOAD_DIR, f) for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
+        if paths:
+            ingest_paths(paths)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Falha ao excluir: {e}")
     return {"ok": True, "deleted": name}
@@ -224,6 +233,21 @@ async def check_token(x_admin_token: Optional[str] = Header(None)):
     if (x_admin_token or "").strip() == ADMIN_UPLOAD_TOKEN:
         return PlainTextResponse("✅ Token válido", status_code=200)
     return PlainTextResponse("❌ Token inválido", status_code=401)
+
+# --------------------- STATUS DE DEPURAÇÃO DO SISTEMA ------------------------
+@app.get("/debug_status")
+def debug_status():
+    """Verifica se há PDFs e se o índice do RAG existe."""
+    arquivos = [f for f in os.listdir(UPLOAD_DIR) if f.lower().endswith(".pdf")]
+    index_dir = os.path.join(os.path.dirname(__file__), "data")  # ajuste se o rag_store usar outro
+    index_ok = os.path.isdir(index_dir) and any(os.scandir(index_dir))
+    return {
+        "upload_dir": UPLOAD_DIR,
+        "pdfs_encontrados": arquivos,
+        "indice_existente": index_ok,
+        "indice_diretorio": index_dir,
+        "total_pdfs": len(arquivos)
+    }
 
 # ----------------------------- UVICORN (Render) ------------------------------
 if __name__ == "__main__":
