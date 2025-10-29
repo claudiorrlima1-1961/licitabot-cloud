@@ -1,119 +1,233 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Painel do Administrador — Licitabot</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Envio de PDFs (Administrador)</title>
   <style>
-    :root {
-      --bg:#f5f7fa; --card:#fff; --txt:#1f2937;
-      --muted:#475569; --btn:#0b3d5c; --ok:#166534; --err:#991b1b;
+    :root{--bg:#f7f9fc;--card:#fff;--text:#0f172a;--muted:#475569;--ok:#0ea5e9;--ok2:#16a34a;--warn:#eab308;--err:#dc2626}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
+    .wrap{max-width:860px;margin:32px auto;padding:0 16px}
+    .card{background:var(--card);border-radius:16px;box-shadow:0 6px 20px rgba(2,6,23,.06);padding:20px;margin-bottom:18px}
+    h1{margin:0 0 8px;font-size:28px}
+    p.muted{color:var(--muted);margin:0 0 16px}
+    label{display:block;font-weight:600;margin:10px 0 6px}
+    input[type="password"],input[type="text"],input[type="file"],textarea{
+      width:100%;padding:12px 14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:16px
     }
-    html,body {height:100%;margin:0;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--txt);}
-    .container {display:flex;flex-direction:column;align-items:center;justify-content:flex-start;min-height:100vh;padding:24px;}
-    .card {width:100%;max-width:520px;background:var(--card);border-radius:16px;
-           box-shadow:0 10px 28px rgba(0,0,0,.12);padding:24px;margin-bottom:20px;}
-    h1{margin:0 0 8px;font-size:22px;color:#0b2942;text-align:center}
-    .sub{margin:0 0 16px;font-size:14px;color:var(--muted);text-align:center}
-    input,button,select{width:100%;box-sizing:border-box;font-size:15px;}
-    input[type=password],input[type=file]{margin:8px 0 12px;padding:10px;border:1px solid #cbd5e1;border-radius:10px}
-    button{background:var(--btn);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:600;cursor:pointer;margin-top:6px}
-    button:hover{filter:brightness(1.05)}
-    #status{margin-top:12px;font-size:14px;max-height:260px;overflow:auto}
-    .ok{color:var(--ok)} .err{color:var(--err)}
-    ul{list-style:none;padding-left:0}
-    li{margin:4px 0;display:flex;justify-content:space-between;align-items:center}
-    .btn-small{background:#0b3d5c;color:#fff;border:none;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:13px}
-    .btn-del{background:#991b1b;}
-    .btn-small:hover{filter:brightness(1.15)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{appearance:none;border:0;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer}
+    .btn-primary{background:#0f3b57;color:#fff}
+    .btn-secondary{background:#e2e8f0;color:#0f172a}
+    .btn-danger{background:var(--err);color:#fff}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .status{margin-top:12px;font-size:14px}
+    .status.ok{color:var(--ok2)}
+    .status.err{color:var(--err)}
+    .list .item{display:flex;align-items:center;justify-content:space-between;padding:12px;border-bottom:1px solid #eef2f7}
+    .name{display:flex;align-items:center;gap:10px;max-width:70%;word-break:break-word}
+    .pill{background:#f1f5f9;border-radius:999px;padding:2px 8px;font-size:12px;color:#334155}
+    .actions{display:flex;gap:8px}
+    .progress{height:8px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-top:8px}
+    .progress > span{display:block;height:100%;width:0;background:#0ea5e9;transition:width .2s}
+    small.helper{display:block;color:#64748b}
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="wrap">
     <div class="card">
       <h1>Envio de PDFs (Administrador)</h1>
-      <p class="sub">Insira a senha do administrador (ADMIN_UPLOAD_TOKEN) e envie seus arquivos.</p>
-      <input id="senha" type="password" placeholder="Senha do admin"/>
-      <input id="arquivo" type="file" accept="application/pdf" multiple/>
-      <button onclick="enviar()">📤 Enviar PDFs</button>
-      <button onclick="listar()">📄 Ver PDFs Enviados</button>
-      <div id="status"></div>
+      <p class="muted">Insira a senha do administrador (<code>ADMIN_UPLOAD_TOKEN</code>) e envie seus arquivos.</p>
+
+      <label for="token">Senha do administrador</label>
+      <input id="token" type="password" placeholder="••••••••" autocomplete="off" />
+
+      <div class="row" style="margin-top:10px">
+        <div style="flex:1 1 360px">
+          <label for="file">Selecionar PDF</label>
+          <input id="file" type="file" accept="application/pdf" />
+          <div class="progress" id="prog" hidden><span></span></div>
+          <small class="helper">Arquivos muito grandes podem falhar em provedores PaaS. Prefira <b>&lt; 100 MB</b>.</small>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button id="btnUpload" class="btn btn-primary">📤 Enviar PDFs</button>
+        <button id="btnList" class="btn btn-secondary">📄 Ver PDFs Enviados</button>
+      </div>
+      <div id="status" class="status"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px">Arquivos no servidor</h2>
+      <div id="files" class="list" role="list"></div>
     </div>
   </div>
 
   <script>
-    const status = document.getElementById('status');
+    const $ = (q)=>document.querySelector(q);
+    const tokenEl = $('#token');
+    const fileEl  = $('#file');
+    const statusEl= $('#status');
+    const listEl  = $('#files');
+    const progEl  = $('#prog'); const progBar = $('#prog span');
 
-    async function enviar(){
-      const senha = document.getElementById('senha').value.trim();
-      const arquivos = document.getElementById('arquivo').files;
-      status.innerHTML = '';
-      if(!senha){ status.innerHTML='<p class="err">Informe a senha.</p>'; return; }
-      if(!arquivos.length){ status.innerHTML='<p class="err">Selecione ao menos 1 PDF.</p>'; return; }
+    function setStatus(msg, ok=false, err=false){
+      statusEl.className = 'status' + (ok?' ok':'') + (err?' err':'');
+      statusEl.textContent = msg || '';
+    }
 
-      for(let i=0;i<arquivos.length;i++){
-        const fd = new FormData(); fd.append('file', arquivos[i]);
-        try{
-          const r = await fetch('/upload_pdf', { method:'POST', headers:{'X-Admin-Token':senha}, body:fd });
-          const j = await r.json();
-          if(r.ok){
-            status.innerHTML += `<p class="ok">✅ ${j.filename} enviado com sucesso.</p>`;
-          }else{
-            status.innerHTML += `<p class="err">❌ ${arquivos[i].name}: ${j.detail || 'Erro desconhecido.'}</p>`;
+    async function apiFetch(url, opts={}){
+      const token = (tokenEl.value||'').trim();
+      if(!token) throw new Error('Informe a senha do administrador.');
+      opts.headers = Object.assign({}, opts.headers||{}, {'X-Admin-Token': token});
+      const resp = await fetch(url, opts);
+      let data;
+      try { data = await resp.json(); }
+      catch {
+        const text = await resp.text();
+        throw new Error(`Erro inesperado do servidor (${resp.status}). ${text.slice(0,180)}`);
+      }
+      if(!resp.ok){
+        const msg = data?.detail || data?.message || `Falha HTTP ${resp.status}`;
+        throw new Error(msg);
+      }
+      return data;
+    }
+
+    async function listFiles(){
+      setStatus('Carregando lista…');
+      try{
+        const data = await apiFetch('/list_pdfs');
+        renderList(data.files||[]);
+        setStatus(`Listados ${data.files?.length||0} arquivo(s).`, true);
+      }catch(e){
+        setStatus(e.message, false, true);
+      }
+    }
+
+    function renderList(files){
+      listEl.innerHTML = '';
+      if(!files.length){
+        listEl.innerHTML = `<div class="item"><div class="name">Nenhum PDF encontrado.</div></div>`;
+        return;
+      }
+      files.forEach(name=>{
+        const row = document.createElement('div');
+        row.className = 'item';
+        row.innerHTML = `
+          <div class="name">
+            <span>📄</span>
+            <div>
+              <div>${name}</div>
+              <div class="pill">PDF</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-secondary" data-ver>Ver</button>
+            <button class="btn btn-danger" data-del>Excluir</button>
+          </div>`;
+        row.querySelector('[data-del]').onclick = ()=>delFile(name);
+        row.querySelector('[data-ver]').onclick = ()=>viewFile(name);
+        listEl.appendChild(row);
+      });
+    }
+
+    async function viewFile(name){
+      // seu backend não expõe os PDFs publicamente.
+      // tentaremos abrir /download_pdf?name=... (caso você adicione essa rota).
+      const url = `/download_pdf?name=${encodeURIComponent(name)}`;
+      try{
+        const head = await fetch(url, { method:'HEAD' });
+        if(head.ok){
+          window.open(url, '_blank');
+          return;
+        }
+        throw new Error();
+      }catch{
+        alert("Para visualizar/baixar, crie uma rota GET /download_pdf?name=... que leia o arquivo do UPLOAD_DIR e retorne o PDF com Content-Type: application/pdf. Se quiser, te envio o trecho pronto.");
+      }
+    }
+
+    async function delFile(name){
+      if(!confirm(`Excluir o arquivo "${name}"?`)) return;
+      setStatus('Excluindo…');
+      try{
+        await apiFetch(`/delete_pdf?name=${encodeURIComponent(name)}`, { method:'DELETE' });
+        setStatus('Arquivo excluído e índice atualizado.', true);
+        listFiles();
+      }catch(e){
+        setStatus(e.message, false, true);
+      }
+    }
+
+    async function uploadOne(file){
+      // envia com feedback de progresso
+      const form = new FormData();
+      form.append('file', file);
+
+      // fetch nativo não expõe onprogress; usamos xhr só para a barra
+      await new Promise((resolve,reject)=>{
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload_pdf');
+        xhr.setRequestHeader('X-Admin-Token', (tokenEl.value||'').trim());
+        xhr.upload.onprogress = (ev)=>{
+          if(ev.lengthComputable){
+            progEl.hidden = false;
+            progBar.style.width = `${(ev.loaded/ev.total)*100|0}%`;
           }
-        }catch(err){
-          status.innerHTML += `<p class="err">❌ ${arquivos[i].name}: ${err.message}</p>`;
-        }
-      }
+        };
+        xhr.onload = async ()=>{
+          progBar.style.width = '100%';
+          setTimeout(()=>{ progEl.hidden = true; progBar.style.width = '0%'; }, 400);
+
+          // tratar JSON/HTML corretamente
+          let data;
+          try{ data = JSON.parse(xhr.responseText); }
+          catch{
+            const text = xhr.responseText||'';
+            reject(new Error(`Erro inesperado do servidor (${xhr.status}). ${text.slice(0,180)}`));
+            return;
+          }
+
+          if(xhr.status<200 || xhr.status>=300 || data.ok!==true){
+            reject(new Error(data.detail || data.message || `Falha HTTP ${xhr.status}`));
+            return;
+          }
+          if(data.indexed){
+            resolve(`✅ ${file.name} — enviado e indexado`);
+          }else{
+            resolve(`⚠️ ${file.name} — salvo, porém não indexado (${data.index_error||'motivo desconhecido'})`);
+          }
+        };
+        xhr.onerror = ()=>reject(new Error('Falha de rede no upload.'));
+        xhr.send(form);
+      });
     }
 
-    async function listar(){
-      const senha = document.getElementById('senha').value.trim();
-      status.innerHTML = '';
-      if(!senha){ status.innerHTML='<p class="err">Informe a senha.</p>'; return; }
-
+    async function doUpload(){
+      const f = fileEl.files?.[0];
+      if(!f){ setStatus('Escolha um arquivo PDF.', false, true); return; }
+      setStatus('Enviando…');
       try{
-        const r = await fetch('/list_pdfs', { headers:{'X-Admin-Token':senha} });
-        if(!r.ok){ throw new Error('Token inválido ou erro no servidor.'); }
-        const j = await r.json();
-        if(!j.files.length){ status.innerHTML='<p class="err">Nenhum PDF encontrado.</p>'; return; }
-
-        let html = '<ul>';
-        for(const f of j.files){
-          html += `<li>📄 ${f}
-                     <div>
-                       <button class="btn-small" onclick="verPDF('${f}')">Ver</button>
-                       <button class="btn-small btn-del" onclick="deletar('${f}')">Excluir</button>
-                     </div>
-                   </li>`;
-        }
-        html += '</ul>';
-        status.innerHTML = html;
+        const msg = await uploadOne(f);
+        setStatus(msg, true);
+        fileEl.value = '';
+        listFiles();
       }catch(e){
-        status.innerHTML = `<p class="err">${e.message}</p>`;
+        setStatus(e.message, false, true);
       }
     }
 
-    function verPDF(nome){
-      window.open('/data/uploaded_pdfs/'+nome, '_blank');
-    }
+    // eventos
+    $('#btnUpload').onclick = doUpload;
+    $('#btnList').onclick   = listFiles;
 
-    async function deletar(nome){
-      const senha = document.getElementById('senha').value.trim();
-      if(!confirm(`Deseja realmente excluir o arquivo "${nome}"?`)) return;
-      try{
-        const r = await fetch(`/delete_pdf?name=${encodeURIComponent(nome)}`, {
-          method:'DELETE',
-          headers:{'X-Admin-Token':senha}
-        });
-        if(!r.ok){ throw new Error('Erro ao excluir.'); }
-        const j = await r.json();
-        status.innerHTML += `<p class="ok">🗑️ ${j.deleted} excluído com sucesso.</p>`;
-        listar();
-      }catch(e){
-        status.innerHTML = `<p class="err">${e.message}</p>`;
-      }
-    }
+    // carregar lista ao abrir a página (se o token já estiver preenchido via autofill)
+    window.addEventListener('load', ()=>{
+      if((tokenEl.value||'').trim()) listFiles();
+    });
   </script>
 </body>
 </html>
