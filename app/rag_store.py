@@ -1,24 +1,98 @@
 # -*- coding: utf-8 -*-
-import os, uuid
+import os, uuid, json
 from typing import List, Tuple
 from pypdf import PdfReader
 from tiktoken import get_encoding
 
 import chromadb
 from chromadb.config import Settings
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 ENC = get_encoding("cl100k_base")
 
 # -------------------- Diretório persistente do índice ------------------------
-# Prioridade: CHROMA_DIR (env) -> /data/chroma (se existir) -> ./app/chroma
 _DEF_DATA = "/data/chroma" if os.path.isdir("/data") else os.path.join(os.path.dirname(__file__), "chroma")
 PERSIST_DIR = os.getenv("CHROMA_DIR", _DEF_DATA)
 os.makedirs(PERSIST_DIR, exist_ok=True)
 
-# -------------------- Embeddings explícitos ----------------------------------
-# Modelo leve e eficiente; melhora muito a qualidade das buscas sem termo exato
-EMB = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+# -------------------- Seleção dinâmica de Embeddings -------------------------
+# Ordem de preferência:
+# 1) Azure OpenAI (AZURE_OPENAI_* vars)
+# 2) OpenAI (OPENAI_API_KEY)
+# 3) SentenceTransformers (se estiver instalado)
+#
+# A interface esperada por Chroma é uma função/objeto com método __call__(self, texts: List[str]) -> List[List[float]]
+EmbeddingFn = None
+EMB_DESC = ""
+
+def _azure_embedder():
+    """Cria um embedder para Azure OpenAI via requests (sem depender de SDK)."""
+    import requests
+
+    endpoint = os.getenv("AZURE_OPENAI_ENDPOINT", "").rstrip("/")
+    api_key = os.getenv("AZURE_OPENAI_API_KEY", "")
+    deployment = os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT", "")  # ex: 'text-embedding-3-small'
+
+    if not (endpoint and api_key and deployment):
+        return None
+
+    class AzureOpenAIEmbedding:
+        def __call__(self, texts: List[str]) -> List[List[float]]:
+            url = f"{endpoint}/openai/deployments/{deployment}/embeddings?api-version=2023-05-15"
+            headers = {
+                "Content-Type": "application/json",
+                "api-key": api_key,
+            }
+            data = {"input": texts}
+            r = requests.post(url, headers=headers, data=json.dumps(data), timeout=60)
+            r.raise_for_status()
+            out = r.json()
+            # compat: alguns retornos usam 'data' com dicts contendo 'embedding'
+            return [item["embedding"] for item in out["data"]]
+
+    return AzureOpenAIEmbedding()
+
+def _openai_embedder():
+    """Cria o embedder nativo do Chroma para OpenAI, se OPENAI_API_KEY existir."""
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        return None
+    model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    return OpenAIEmbeddingFunction(api_key=api_key, model_name=model)
+
+def _sentence_transformers_embedder():
+    """Usa sentence-transformers apenas se já estiver instalado (sem downloads pesados)."""
+    try:
+        from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+    except Exception:
+        return None
+    model = os.getenv("ST_MODEL", "all-MiniLM-L6-v2")
+    try:
+        return SentenceTransformerEmbeddingFunction(model_name=model)
+    except Exception:
+        # se o modelo não estiver disponível localmente, evitar baixar no Render
+        return None
+
+# Resolver embedder
+EmbeddingFn = _azure_embedder()
+EMB_DESC = "Azure OpenAI" if EmbeddingFn else ""
+
+if EmbeddingFn is None:
+    EmbeddingFn = _openai_embedder()
+    EMB_DESC = "OpenAI" if EmbeddingFn else EMB_DESC
+
+if EmbeddingFn is None:
+    EmbeddingFn = _sentence_transformers_embedder()
+    EMB_DESC = "SentenceTransformers" if EmbeddingFn else EMB_DESC
+
+if EmbeddingFn is None:
+    raise RuntimeError(
+        "Nenhuma fonte de embeddings encontrada.\n"
+        "Configure uma das opções:\n"
+        "  - Azure OpenAI: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_EMBEDDING_DEPLOYMENT\n"
+        "  - OpenAI: OPENAI_API_KEY (opcional OPENAI_EMBEDDING_MODEL)\n"
+        "  - Ou instale sentence-transformers e disponibilize o modelo localmente."
+    )
 
 # -------------------- Utilidades ---------------------------------------------
 def _chunks(text: str, max_tokens: int = 650, overlap: int = 60):
@@ -57,12 +131,13 @@ def load_pdf_text(path: str) -> str:
 
 def _get_collection():
     client = chromadb.PersistentClient(path=PERSIST_DIR, settings=Settings(allow_reset=False))
-    # Observação: definir embedding_function AQUI é essencial para a query retornar resultados
-    return client.get_or_create_collection(
+    col = client.get_or_create_collection(
         name="licitabot_docs",
-        embedding_function=EMB,
+        embedding_function=EmbeddingFn,
         metadata={"hnsw:space": "cosine"}
     )
+    print(f"[CHROMA] Collection pronta em {PERSIST_DIR} | Embeddings: {EMB_DESC}")
+    return col
 
 # -------------------- API pública --------------------------------------------
 def ingest_paths(paths: List[str]) -> int:
@@ -91,7 +166,7 @@ def ingest_paths(paths: List[str]) -> int:
         print("[INDEX] Nenhum texto adicionado — possivelmente PDFs-imagem ou vazios.")
         return 0
 
-    # Para evitar conflito de IDs já existentes, removemos e re-adicionamos (idempotente)
+    # remove IDs se já existirem (idempotente) e adiciona novamente
     try:
         col.delete(ids=ids)
     except Exception:
