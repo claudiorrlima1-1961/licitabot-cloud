@@ -1,26 +1,31 @@
-# Dockerfile
+# Usa uma imagem leve e moderna do Python
 FROM python:3.11-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
+# Define o diretório de trabalho
 WORKDIR /app
 
-# 1) Instalar dependências
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Instala dependências de sistema para OCR e PDF
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        poppler-utils \
+        tesseract-ocr \
+        tesseract-ocr-por \
+        tesseract-ocr-eng \
+        libgl1 \
+        ghostscript \
+        libsm6 \
+        libxext6 \
+        libxrender1 \
+    && rm -rf /var/lib/apt/lists/*
 
-# 2) Copiar o código
-COPY app ./app
+# Copia os arquivos do projeto
+COPY . .
 
-# 3) IMPORTANTÍSSIMO: copiar assets para os caminhos que o FastAPI espera
-#    Seu main.py usa:
-#      Jinja2Templates(directory="templates")
-#      StaticFiles(directory="static")
-#    Então vamos copiar de app/... para /templates e /static:
-COPY app/templates ./templates
-COPY app/static ./static
+# Instala as dependências do Python
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# 4) Start
-ENV PORT=10000
-CMD exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}
+# Expõe a porta (Render usa $PORT automaticamente)
+EXPOSE 10000
+
+# Comando de inicialização
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
