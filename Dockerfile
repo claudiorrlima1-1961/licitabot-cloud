@@ -1,31 +1,33 @@
-# Usa uma imagem leve e moderna do Python
+# Etapa base
 FROM python:3.11-slim
 
-# Define o diretório de trabalho
+# Evita prompts interativos
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Instala utilitários e OCR (poppler + tesseract)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    poppler-utils \
+    tesseract-ocr \
+    libtesseract-dev \
+    libpoppler-cpp-dev \
+    libgl1 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Cria diretório do app
 WORKDIR /app
 
-# Instala dependências de sistema para OCR e PDF
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        poppler-utils \
-        tesseract-ocr \
-        tesseract-ocr-por \
-        tesseract-ocr-eng \
-        libgl1 \
-        ghostscript \
-        libsm6 \
-        libxext6 \
-        libxrender1 \
-    && rm -rf /var/lib/apt/lists/*
+# Copia arquivos do projeto
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia os arquivos do projeto
 COPY . .
 
-# Instala as dependências do Python
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Cria diretórios persistentes esperados
+RUN mkdir -p /data/uploaded_pdfs /data/chroma
 
-# Expõe a porta (Render usa $PORT automaticamente)
+# Expõe porta padrão
 EXPOSE 10000
 
 # Comando de inicialização
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+CMD ["python", "-m", "app.main"]
